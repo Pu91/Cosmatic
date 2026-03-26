@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Barcode System</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; text-align: center; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 5px; color: white; margin: 5px; }
+        .btn-save { background-color: #28a745; }
+        .btn-scan { background-color: #007bff; }
+        .btn-stop { background-color: #dc3545; }
+        #reader { width: 100%; margin-top: 20px; border: 1px solid #ddd; display: none; }
+        #result { margin-top: 20px; font-weight: bold; color: #333; }
+        .match-found { color: green; border: 2px solid green; padding: 10px; border-radius: 5px; background: #e9f7ef; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Barcode Manager</h2>
+    
+    <!-- ডাটা সেভ করার অংশ -->
+    <div id="save-section">
+        <input type="text" id="barcodeNum" placeholder="Enter Barcode Number">
+        <input type="text" id="imgUrl" placeholder="Enter Image URL">
+        <button class="btn-save" id="saveBtn">Save Barcode</button>
+    </div>
+
+    <hr>
+
+    <!-- স্ক্যান করার অংশ -->
+    <button class="btn-scan" id="startScanBtn">Start Scanner</button>
+    <button class="btn-stop" id="stopScanBtn" style="display:none;">Stop Scanner</button>
+    
+    <div id="reader"></div>
+    <div id="result">Scan a barcode to see details...</div>
+</div>
+
+<script type="module">
+    // Firebase Imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    // Firebase Config
+    const firebaseConfig = {
+        apiKey: "AIzaSyBlwb8douUgFUTHkraH1Y72Acw8wB4m2WE",
+        authDomain: "pharmasist-store.firebaseapp.com",
+        projectId: "pharmasist-store",
+        storageBucket: "pharmasist-store.firebasestorage.app",
+        messagingSenderId: "873424016125",
+        appId: "1:873424016125:web:2d4df5a976a5d8e8a8a494"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const barcodeScanner = new Html5Qrcode("reader");
+
+    // ১. ডাটা সেভ করার ফাংশন
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+        const barcode = document.getElementById('barcodeNum').value;
+        const url = document.getElementById('imgUrl').value;
+
+        if (barcode === "" || url === "") {
+            alert("Please fill all fields!");
+            return;
+        }
+
+        try {
+            await addDoc(collection(db, "barcodes"), {
+                barcodeNumber: barcode,
+                imageUrl: url,
+                timestamp: new Date()
+            });
+            alert("Barcode Saved Successfully!");
+            document.getElementById('barcodeNum').value = "";
+            document.getElementById('imgUrl').value = "";
+        } catch (e) {
+            console.error("Error adding document: ", e);
+        }
+    });
+
+    // ২. বারকোড স্ক্যান এবং ডাটাবেজে খোঁজা
+    const startScanBtn = document.getElementById('startScanBtn');
+    const stopScanBtn = document.getElementById('stopScanBtn');
+    const resultDiv = document.getElementById('result');
+
+    startScanBtn.addEventListener('click', () => {
+        document.getElementById('reader').style.display = 'block';
+        startScanBtn.style.display = 'none';
+        stopScanBtn.style.display = 'inline-block';
+
+        barcodeScanner.start(
+            { facingMode: "environment" }, 
+            { fps: 10, qrbox: { width: 250, height: 150 } },
+            (decodedText) => {
+                // স্ক্যান সফল হলে এই ফাংশনটি চলবে
+                checkBarcodeInFirebase(decodedText);
+            },
+            (errorMessage) => { /* scanning... */ }
+        ).catch(err => alert("Camera error: " + err));
+    });
+
+    // ৩. ফায়ারবেস থেকে ডাটা চেক করা
+    async function checkBarcodeInFirebase(scannedCode) {
+        resultDiv.innerHTML = "Checking database for: " + scannedCode;
+        
+        try {
+            const q = query(collection(db, "barcodes"), where("barcodeNumber", "==", scannedCode));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                // যদি বারকোড মিলে যায়
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    resultDiv.innerHTML = `
+                        <div class="match-found">
+                            🎉 Match Found!<br>
+                            Barcode: ${data.barcodeNumber}<br>
+                            <img src="${data.imageUrl}" alt="Product Image" style="width:100px; margin-top:10px;"><br>
+                            <small>Data retrieved from Firebase</small>
+                        </div>
+                    `;
+                });
+                // ম্যাচ পেলে স্ক্যানার বন্ধ করতে পারেন
+                stopScanner();
+            } else {
+                resultDiv.innerHTML = `<span style="color:red;">❌ No match found for: ${scannedCode}</span>`;
+            }
+        } catch (error) {
+            console.error("Error searching:", error);
+        }
+    }
+
+    // স্ক্যানার বন্ধ করার ফাংশন
+    function stopScanner() {
+        barcodeScanner.stop().then(() => {
+            document.getElementById('reader').style.display = 'none';
+            startScanBtn.style.display = 'inline-block';
+            stopScanBtn.style.display = 'none';
+        });
+    }
+
+    stopScanBtn.addEventListener('click', stopScanner);
+
+</script>
+
+</body>
+</html>
