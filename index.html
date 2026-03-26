@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CosmoStore - Barcode Billing</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Barcode Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    
+    <style>
+        :root {
+            --primary-color: #d63384; 
+            --secondary-color: #6f42c1; 
+            --bg-color: #fff5f8;
+            --white: #ffffff;
+            --text-dark: #333;
+            --danger: #e74c3c;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            padding-bottom: 70px;
+        }
+
+        header {
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            color: white; padding: 15px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        main { padding: 20px; }
+        .section-page { display: none; }
+        .active-page { display: block; animation: fadeIn 0.3s ease; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Dashboard Items */
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .menu-card {
+            background: var(--white); padding: 25px 15px; border-radius: 15px;
+            text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            cursor: pointer; border: 1px solid #fce4ec;
+        }
+        .menu-card i { font-size: 35px; color: var(--primary-color); margin-bottom: 10px; }
+
+        .stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .stat-box {
+            background: white; padding: 12px 5px; border-radius: 12px;
+            text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-bottom: 4px solid var(--primary-color);
+        }
+        .stat-box div { font-size: 16px; font-weight: bold; color: var(--primary-color); }
+
+        /* Forms */
+        .form-group { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 15px;}
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .btn-main { background: var(--primary-color); color: white; border: none; width: 100%; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-scan { background: #444; color: white; border: none; padding: 10px; border-radius: 8px; margin-bottom: 10px; width: 100%; cursor: pointer; }
+
+        /* Table */
+        .med-list-container { background: white; border-radius: 10px; overflow-x: auto; margin-top: 15px; }
+        .med-header, .med-row {
+            display: grid; grid-template-columns: 60px 120px 80px 70px 150px;
+            padding: 12px 10px; border-bottom: 1px solid #eee; align-items: center; min-width: 500px;
+        }
+        .med-header { background: #fce4ec; font-weight: bold; }
+
+        /* Scanner Box */
+        #reader, #reader-sell { width: 100%; border-radius: 10px; overflow: hidden; margin-bottom: 10px; background: #000; }
+
+        /* Cart */
+        .cart-box { background: #fff; padding: 15px; border-radius: 15px; margin-top: 20px; border: 1px solid var(--primary-color); }
+        .cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dashed #ddd; padding-bottom: 5px; }
+
+        /* Footer */
+        footer {
+            background: white; position: fixed; bottom: 0; width: 100%;
+            display: flex; justify-content: space-around; padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+        .foot-item { text-align: center; color: #888; cursor: pointer; font-size: 12px; }
+        .foot-item.active { color: var(--primary-color); }
+        .foot-item i { font-size: 20px; display: block; }
+    </style>
+</head>
+<body>
+
+    <!-- সাউন্ড প্লে করার জন্য অডিও এলিমেন্ট (ইনভিজিবল) -->
+    <audio id="sound-success" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"></audio>
+    <audio id="sound-error" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"></audio>
+
+    <header>
+        <div class="store-name">💄 CosmoStore</div>
+        <button onclick="location.reload()" style="background:none; border:1px solid white; color:white; padding:5px 10px; border-radius:5px;"><i class="fas fa-sync"></i></button>
+    </header>
+
+    <main>
+        <!-- HOME PAGE -->
+        <section id="page-home" class="section-page active-page">
+            <h2>Cosmetic Dashboard</h2>
+            <div class="dashboard-grid">
+                <div class="menu-card" onclick="goToPage('page-add-med')">
+                    <i class="fas fa-plus-square"></i>
+                    <h3>Add Product</h3>
+                </div>
+                <div class="menu-card" onclick="goToPage('page-view-med')">
+                    <i class="fas fa-boxes"></i>
+                    <h3>Stock List</h3>
+                </div>
+                <div class="menu-card" onclick="goToPage('page-sell')">
+                    <i class="fas fa-barcode"></i>
+                    <h3>Scan & Sell</h3>
+                </div>
+                <div class="menu-card" onclick="goToPage('page-report')">
+                    <i class="fas fa-file-invoice"></i>
+                    <h3>Reports</h3>
+                </div>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-box"><h4>Today</h4><div id="stat-today">0</div></div>
+                <div class="stat-box"><h4>Monthly</h4><div id="stat-month">0</div></div>
+            </div>
+            <div style="margin-top: 20px; background: white; padding: 15px; border-radius: 15px;">
+                <canvas id="salesChart" height="150"></canvas>
+            </div>
+        </section>
+
+        <!-- ADD PRODUCT PAGE -->
+        <section id="page-add-med" class="section-page">
+            <button onclick="goToPage('page-home')" style="border:none; color:var(--primary-color); background:none; cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+            <h2>Add/Edit Product</h2>
+            <div class="form-group">
+                <div id="reader"></div>
+                <button class="btn-scan" onclick="startScanner('m-barcode')"><i class="fas fa-camera"></i> Scan Barcode</button>
+                <input type="text" id="m-barcode" placeholder="Barcode Number">
+                <input type="text" id="m-name" placeholder="Product Name">
+                <input type="number" id="m-price" placeholder="Price">
+                <input type="number" id="m-stock" placeholder="Stock Qty">
+                <input type="text" id="m-cat" placeholder="Category">
+                <input type="hidden" id="edit-id">
+                <button class="btn-main" onclick="saveProduct()">SAVE PRODUCT</button>
+            </div>
+        </section>
+
+        <!-- VIEW STOCK -->
+        <section id="page-view-med" class="section-page">
+            <h2>Inventory</h2>
+            <input type="text" id="search-prod" placeholder="Search by name..." onkeyup="filterProds()">
+            <div class="med-list-container">
+                <div class="med-header">
+                    <div>Img</div><div>Name/Barcode</div><div>Price</div><div>Stock</div><div>Action</div>
+                </div>
+                <div id="prod-list-render"></div>
+            </div>
+        </section>
+
+        <!-- SELL PAGE (SCANNER) -->
+        <section id="page-sell" class="section-page">
+            <h2>Billing System</h2>
+            <div class="form-group">
+                <div id="reader-sell"></div>
+                <button class="btn-main" style="background:#444;" onclick="startScanner('sell-barcode', true)">
+                    <i class="fas fa-camera"></i> SCAN PRODUCT TO ADD
+                </button>
+                <input type="hidden" id="sell-barcode">
+            </div>
+
+            <div id="qty-box" class="form-group" style="display:none; border:2px solid var(--primary-color);">
+                <h4 id="selected-prod-name">Product Name</h4>
+                <div style="display:flex; gap:10px;">
+                    <input type="number" id="input-qty" value="1" min="1">
+                    <button onclick="confirmAddToCart()" class="btn-main" style="width:100px;">ADD</button>
+                </div>
+            </div>
+
+            <div class="cart-box">
+                <h3>Cart</h3>
+                <div id="cart-render"></div>
+                <hr>
+                <div style="display:flex; justify-content:space-between; font-weight:bold;">Total: <span id="grand-total">0</span></div>
+                <button class="btn-main" style="margin-top:10px;" onclick="processSale()">COMPLETE SALE</button>
+            </div>
+        </section>
+
+        <!-- REPORT PAGE -->
+        <section id="page-report" class="section-page">
+            <h2>Sales History</h2>
+            <input type="date" id="report-date" onchange="loadReport()">
+            <div id="report-list" class="med-list-container"></div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="foot-item active" onclick="goToPage('page-home')"><i class="fas fa-home"></i>Home</div>
+        <div class="foot-item" onclick="goToPage('page-view-med')"><i class="fas fa-boxes"></i>Stock</div>
+        <div class="foot-item" onclick="goToPage('page-sell')"><i class="fas fa-qrcode"></i>Sell</div>
+        <div class="foot-item" onclick="goToPage('page-report')"><i class="fas fa-chart-bar"></i>Report</div>
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, onSnapshot, doc, updateDoc, deleteDoc, query, where, serverTimestamp } 
+        from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // --- NEW FIREBASE CONFIG (Replced as per your request) ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyD_MJAYCk5JZuOn6_YwsBC86gBKxwC_EKY",
+          authDomain: "cosmatic-a7f73.firebaseapp.com",
+          databaseURL: "https://cosmatic-a7f73-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "cosmatic-a7f73",
+          storageBucket: "cosmatic-a7f73.firebasestorage.app",
+          messagingSenderId: "693000942896",
+          appId: "1:693000942896:web:5208e137c75e62749c44f5",
+          measurementId: "G-L7FNN9G0NY"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let products = [];
+        let cart = [];
+        let tempSelectedProd = null;
+        let html5QrCode;
+
+        // Sound Functions
+        const playSuccess = () => document.getElementById('sound-success').play();
+        const playError = () => document.getElementById('sound-error').play();
+
+        // Navigation
+        window.goToPage = (id) => {
+            document.querySelectorAll('.section-page').forEach(p => p.classList.remove('active-page'));
+            document.getElementById(id).classList.add('active-page');
+            document.querySelectorAll('.foot-item').forEach(i => i.classList.remove('active'));
+            if(id === 'page-home') fetchStats();
+        };
+
+        // Barcode Scanner
+        window.startScanner = (inputId, autoSell = false) => {
+            const readerId = autoSell ? "reader-sell" : "reader";
+            if(html5QrCode) html5QrCode.stop();
+            html5QrCode = new Html5Qrcode(readerId);
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 150 } },
+                (decodedText) => {
+                    document.getElementById(inputId).value = decodedText;
+                    if(autoSell) handleAutoAdd(decodedText);
+                    else { playSuccess(); html5QrCode.stop(); }
+                }
+            ).catch(err => console.log(err));
+        };
+
+        function handleAutoAdd(barcode) {
+            const prod = products.find(p => p.barcode === barcode);
+            if(prod) {
+                playSuccess(); // Match Sound
+                tempSelectedProd = prod;
+                document.getElementById('selected-prod-name').innerText = prod.name + " (Price: " + prod.price + ")";
+                document.getElementById('qty-box').style.display = 'block';
+                document.getElementById('input-qty').focus();
+            } else {
+                playError(); // No Match Sound
+                alert("Product Not Found!");
+            }
+        }
+
+        // Firestore Sync
+        onSnapshot(collection(db, "stock"), (snap) => {
+            products = [];
+            let html = "";
+            snap.forEach(doc => {
+                let p = doc.data(); p.id = doc.id;
+                products.push(p);
+                html += `<div class="med-row">
+                    <img src="https://via.placeholder.com/50" width="40">
+                    <div><b>${p.name}</b><br><small>${p.barcode}</small></div>
+                    <div>${p.price}</div>
+                    <div style="color:${p.stock < 5 ? 'red':'green'}">${p.stock}</div>
+                    <div>
+                        <button onclick="editProd('${p.id}')"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteProd('${p.id}')" style="color:red;"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('prod-list-render').innerHTML = html;
+        });
+
+        window.saveProduct = async () => {
+            const id = document.getElementById('edit-id').value;
+            const data = {
+                barcode: document.getElementById('m-barcode').value,
+                name: document.getElementById('m-name').value,
+                price: parseFloat(document.getElementById('m-price').value),
+                stock: parseInt(document.getElementById('m-stock').value),
+                cat: document.getElementById('m-cat').value
+            };
+            if(id) await updateDoc(doc(db, "stock", id), data);
+            else await addDoc(collection(db, "stock"), data);
+            alert("Product Saved!");
+            goToPage('page-view-med');
+        };
+
+        window.editProd = (id) => {
+            const p = products.find(x => x.id === id);
+            document.getElementById('edit-id').value = p.id;
+            document.getElementById('m-barcode').value = p.barcode;
+            document.getElementById('m-name').value = p.name;
+            document.getElementById('m-price').value = p.price;
+            document.getElementById('m-stock').value = p.stock;
+            goToPage('page-add-med');
+        };
+
+        window.deleteProd = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "stock", id)); };
+
+        // Cart
+        window.confirmAddToCart = () => {
+            const qty = parseInt(document.getElementById('input-qty').value);
+            if(qty > tempSelectedProd.stock) return alert("Out of stock!");
+            cart.push({...tempSelectedProd, qty: qty});
+            renderCart();
+            document.getElementById('qty-box').style.display = 'none';
+        };
+
+        function renderCart() {
+            let html = ""; let total = 0;
+            cart.forEach((item, idx) => {
+                let t = item.price * item.qty; total += t;
+                html += `<div class="cart-item"><span>${item.name} x${item.qty}</span><span>${t}</span></div>`;
+            });
+            document.getElementById('grand-total').innerText = total;
+            document.getElementById('cart-render').innerHTML = html;
+        }
+
+        window.processSale = async () => {
+            if(cart.length === 0) return;
+            const today = new Date().toISOString().split('T')[0];
+            const sale = {
+                items: cart,
+                total: parseFloat(document.getElementById('grand-total').innerText),
+                date: today,
+                timestamp: serverTimestamp()
+            };
+            await addDoc(collection(db, "sales"), sale);
+            for(let item of cart) {
+                const ref = doc(db, "stock", item.id);
+                await updateDoc(ref, { stock: item.stock - item.qty });
+            }
+            alert("Sale Completed!");
+            cart = []; renderCart();
+        };
+
+        // Stats
+        async function fetchStats() {
+            const snap = await getDocs(collection(db, "sales"));
+            let today = new Date().toISOString().split('T')[0];
+            let tAmt = 0;
+            snap.forEach(doc => { if(doc.data().date === today) tAmt += doc.data().total; });
+            document.getElementById('stat-today').innerText = tAmt;
+        }
+
+        window.filterProds = () => {
+            const term = document.getElementById('search-prod').value.toLowerCase();
+            document.querySelectorAll('.med-row').forEach(row => {
+                row.style.display = row.innerText.toLowerCase().includes(term) ? "grid" : "none";
+            });
+        };
+
+        fetchStats();
+    </script>
+</body>
+</html>
