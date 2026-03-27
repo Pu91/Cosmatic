@@ -178,7 +178,7 @@
         .message-box {
             display: none; position: fixed; top: 20%; left: 50%; transform: translate(-50%, -50%);
             background: var(--primary-color); color: white; padding: 20px; border-radius: 10px;
-            text-align: center; z-index: 2000; box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            text-align: center; z-index: 5000; box-shadow: 0 5px 20px rgba(0,0,0,0.3);
         }
         .btn-refresh {
             background: none; border: 1px solid white; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;
@@ -193,7 +193,7 @@
 
     <div id="msgBox" class="message-box">
         <p id="msgText">Saved Successfully!</p>
-        <button onclick="closeMsg()" style="background:white; border:none; padding:5px 15px; border-radius:5px; color:var(--primary-color);">OK</button>
+        <button onclick="closeMsg()" style="background:white; border:none; padding:10px 20px; border-radius:5px; color:var(--primary-color); font-weight:bold; cursor:pointer;">OK</button>
     </div>
 
     <!-- Modal for Views -->
@@ -314,8 +314,8 @@
                 <h4 id="selected-med-name" style="margin:0 0 10px 0; color:var(--primary-color);">Product Name</h4>
                 <div style="display:flex; gap:10px;">
                     <input type="number" id="input-qty" placeholder="Qty" min="1" style="margin:0;">
-                    <button onclick="confirmAddToCart()" style="background:var(--primary-color); color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold;">ADD</button>
-                    <button onclick="cancelSelection()" style="background:#ccc; border:none; padding:10px; border-radius:8px;">X</button>
+                    <button onclick="confirmAddToCart()" style="background:var(--primary-color); color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer;">ADD</button>
+                    <button onclick="cancelSelection()" style="background:#ccc; border:none; padding:10px; border-radius:8px; cursor:pointer;">X</button>
                 </div>
             </div>
 
@@ -454,6 +454,7 @@
         let allSalesForExport = [];
         let html5QrCode = null;
         let myChart = null;
+        let tempSelectedMed = null; // গ্লোবাল ভেরিয়েবল
 
         const playSuccess = () => document.getElementById('sound-success').play();
         const playError = () => document.getElementById('sound-error').play();
@@ -473,9 +474,7 @@
             }
         };
 
-        // --- EXPORT LOGIC (NEW & IMPROVED) ---
-        
-        // 1. Export All Inventory
+        // --- EXPORT LOGIC ---
         window.exportStockToExcel = () => {
             const data = medicines.map(m => ({
                 'Product Name': m.name, 
@@ -488,7 +487,6 @@
             downloadXL(data, "Inventory_Report");
         };
 
-        // 2. Export Sales Reports (Flattened Data)
         window.exportSalesReport = (type) => {
             let today = new Date().toISOString().split('T')[0];
             let y = new Date(); y.setDate(y.getDate() - 1);
@@ -508,7 +506,7 @@
                         'Qty': item.qty,
                         'Price': item.price,
                         'Total': item.qty * item.price,
-                        'Grand Total (After Discount)': sale.total,
+                        'Grand Total': sale.total,
                         'Payment': sale.payment
                     });
                 });
@@ -516,7 +514,6 @@
             downloadXL(data, `Sales_Report_${type}`);
         };
 
-        // 3. Export Filtered Lists (Expired, Low Stock, No Stock)
         window.exportFilteredToExcel = (type) => {
             let today = new Date().toISOString().split('T')[0];
             let list = [];
@@ -534,17 +531,15 @@
             downloadXL(data, `${type}_Products_Report`);
         };
 
-        // Helper function to trigger download
         function downloadXL(data, filename) {
-            if(data.length === 0) { alert("No data available to download!"); return; }
+            if(data.length === 0) { alert("No data available!"); return; }
             const worksheet = XLSX.utils.json_to_sheet(data);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
             XLSX.writeFile(workbook, `${filename}_${new Date().toLocaleDateString()}.xlsx`);
         }
 
-        // --- REMAINING ORIGINAL FUNCTIONS ---
-
+        // --- SCANNER LOGIC ---
         window.startScanner = (inputId, autoSell = false) => {
             const readerId = autoSell ? "reader-sell" : "reader";
             if(html5QrCode) html5QrCode.stop();
@@ -552,18 +547,85 @@
             html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
                 (decodedText) => {
                     document.getElementById(inputId).value = decodedText;
-                    if(autoSell) handleBarcodeSell(decodedText);
-                    else { playSuccess(); html5QrCode.stop(); }
+                    if(autoSell) {
+                        handleBarcodeSell(decodedText);
+                    } else {
+                        playSuccess();
+                        html5QrCode.stop();
+                    }
                 }
             ).catch(err => alert("Camera Error: " + err));
         };
 
+        // বারকোড সেল ফাংশন
         function handleBarcodeSell(barcode) {
             const med = medicines.find(m => m.barcode === barcode);
-            if(med) { playSuccess(); selectMedForQty(med); }
-            else { playError(); alert("Product not found!"); }
+            if(med) {
+                playSuccess();
+                selectMedForQty(med);
+            } else {
+                playError();
+                alert("Product not found with this Barcode!");
+            }
+        }
+        window.handleBarcodeSell = handleBarcodeSell;
+
+        // --- SEARCH & SELECTION LOGIC ---
+        window.searchToSell = () => {
+            const term = document.getElementById('sell-search').value.toLowerCase();
+            const popup = document.getElementById('sell-popup');
+            popup.innerHTML = ""; if(!term) return;
+            const filtered = medicines.filter(m => m.name.toLowerCase().includes(term) || (m.barcode && m.barcode.includes(term)));
+            filtered.forEach(m => {
+                const div = document.createElement('div');
+                div.className = "search-item";
+                div.innerHTML = `<span>${m.name}</span> <b>Stock: ${m.stock}</b>`;
+                div.onclick = () => selectMedForQty(m);
+                popup.appendChild(div);
+            });
+        };
+
+        function selectMedForQty(med) {
+            tempSelectedMed = med;
+            document.getElementById('sell-popup').innerHTML = "";
+            document.getElementById('sell-search').value = med.name;
+            document.getElementById('selected-med-name').innerText = med.name + " (Price: " + med.price + ")";
+            document.getElementById('qty-box').style.display = "block";
+            document.getElementById('input-qty').value = 1;
+            document.getElementById('input-qty').focus();
+        }
+        window.selectMedForQty = selectMedForQty;
+
+        window.confirmAddToCart = () => {
+            if(!tempSelectedMed) return alert("Select a product first!");
+            const qty = parseInt(document.getElementById('input-qty').value);
+            if(!qty || qty <= 0) return alert("Enter valid quantity!");
+            if(qty > tempSelectedMed.stock) return alert("Not enough stock!");
+            
+            playSuccess(); 
+            const existing = cart.find(c => c.id === tempSelectedMed.id);
+            if(existing) existing.qty += qty;
+            else cart.push({ ...tempSelectedMed, qty: qty });
+            
+            renderCart();
+            cancelSelection();
+        };
+
+        function renderCart() {
+            let html = ""; let subtotal = 0;
+            cart.forEach((item, index) => {
+                let total = item.price * item.qty; subtotal += total;
+                html += `<div class="cart-item">
+                    <div><b>${item.name}</b><br><small>${item.price} x ${item.qty}</small></div>
+                    <div><b>${total}</b> <i class="fas fa-trash" style="color:red; margin-left:10px; cursor:pointer;" onclick="removeFromCart(${index})"></i></div>
+                </div>`;
+            });
+            document.getElementById('cart-render').innerHTML = html;
+            document.getElementById('subtotal').innerText = subtotal;
+            calculateTotal();
         }
 
+        // --- DASHBOARD & MEDICINE LOGIC ---
         async function fetchDashboardStats() {
             const snap = await getDocs(collection(db, "sales"));
             let today = new Date().toISOString().split('T')[0];
@@ -671,11 +733,11 @@
                 imgUrl: document.getElementById('m-img').value
             };
             if(!data.name || !data.price) return alert("Fill Name and Price!");
+            
             if(id) await updateDoc(doc(db, "medicines", id), data);
             else await addDoc(collection(db, "medicines"), data);
-            showMsg("Saved Successfully!");
-            goToPage('page-view-med');
-            clearForm();
+            
+            showMsg("Saved Successfully! Page will refresh.");
         };
 
         window.viewMedicine = (id) => {
@@ -710,56 +772,6 @@
 
         window.deleteMed = async (id) => { if(confirm("Are you sure?")) await deleteDoc(doc(db, "medicines", id)); };
 
-        window.searchToSell = () => {
-            const term = document.getElementById('sell-search').value.toLowerCase();
-            const popup = document.getElementById('sell-popup');
-            popup.innerHTML = ""; if(!term) return;
-            const filtered = medicines.filter(m => m.name.toLowerCase().includes(term) || (m.barcode && m.barcode.includes(term)));
-            filtered.forEach(m => {
-                const div = document.createElement('div');
-                div.className = "search-item";
-                div.innerHTML = `<span>${m.name}</span> <b>Stock: ${m.stock}</b>`;
-                div.onclick = () => { playSuccess(); selectMedForQty(m); };
-                popup.appendChild(div);
-            });
-        };
-
-        function selectMedForQty(med) {
-            tempSelectedMed = med;
-            document.getElementById('sell-popup').innerHTML = "";
-            document.getElementById('sell-search').value = med.name;
-            document.getElementById('selected-med-name').innerText = med.name + " (Price: " + med.price + ")";
-            document.getElementById('qty-box').style.display = "block";
-            document.getElementById('input-qty').value = 1;
-            document.getElementById('input-qty').focus();
-        }
-
-        window.confirmAddToCart = () => {
-            const qty = parseInt(document.getElementById('input-qty').value);
-            if(!qty || qty <= 0) return alert("Enter valid quantity!");
-            if(qty > tempSelectedMed.stock) return alert("Not enough stock!");
-            playSuccess(); 
-            const existing = cart.find(c => c.id === tempSelectedMed.id);
-            if(existing) existing.qty += qty;
-            else cart.push({ ...tempSelectedMed, qty: qty });
-            renderCart();
-            cancelSelection();
-        };
-
-        function renderCart() {
-            let html = ""; let subtotal = 0;
-            cart.forEach((item, index) => {
-                let total = item.price * item.qty; subtotal += total;
-                html += `<div class="cart-item">
-                    <div><b>${item.name}</b><br><small>${item.price} x ${item.qty}</small></div>
-                    <div><b>${total}</b> <i class="fas fa-trash" style="color:red; margin-left:10px; cursor:pointer;" onclick="removeFromCart(${index})"></i></div>
-                </div>`;
-            });
-            document.getElementById('cart-render').innerHTML = html;
-            document.getElementById('subtotal').innerText = subtotal;
-            calculateTotal();
-        }
-
         window.processSale = async () => {
             if(cart.length === 0) return alert("Cart is empty!");
             playSuccess(); 
@@ -779,9 +791,7 @@
                 const mRef = doc(db, "medicines", item.id);
                 await updateDoc(mRef, { stock: item.stock - item.qty });
             }
-            showMsg("Sale Confirmed!");
-            cart = []; renderCart();
-            goToPage('page-report');
+            showMsg("Sale Confirmed! Page will refresh.");
         };
 
         window.loadReport = async () => {
@@ -808,26 +818,36 @@
         };
 
         window.closeDetailModal = () => document.getElementById('detailModal').style.display = 'none';
-        window.cancelSelection = () => { document.getElementById('qty-box').style.display = "none"; document.getElementById('sell-search').value = ""; };
+        
+        window.cancelSelection = () => { 
+            document.getElementById('qty-box').style.display = "none"; 
+            document.getElementById('sell-search').value = ""; 
+            tempSelectedMed = null;
+        };
+        
         window.removeFromCart = (index) => { cart.splice(index, 1); renderCart(); };
         window.resetCart = () => { if(confirm("Clear cart?")) { cart = []; renderCart(); } };
+        
         window.calculateTotal = () => {
             const sub = parseFloat(document.getElementById('subtotal').innerText);
             const disc = parseFloat(document.getElementById('discount').value) || 0;
             document.getElementById('grand-total').innerText = sub - disc;
         };
-        function clearForm() {
-            document.getElementById('edit-id').value = ""; document.getElementById('m-barcode').value = "";
-            document.getElementById('m-name').value = ""; document.getElementById('m-price').value = "";
-            document.getElementById('m-stock').value = ""; document.getElementById('m-cat').value = "";
-            document.getElementById('m-expiry').value = ""; document.getElementById('m-img').value = "";
+
+        function showMsg(txt) { 
+            document.getElementById('msgText').innerText = txt; 
+            document.getElementById('msgBox').style.display = 'block'; 
         }
-        function showMsg(txt) { document.getElementById('msgText').innerText = txt; document.getElementById('msgBox').style.display = 'block'; }
-        window.closeMsg = () => document.getElementById('msgBox').style.display = 'none';
+
+        window.closeMsg = () => { 
+            document.getElementById('msgBox').style.display = 'none'; 
+            location.reload(); // মেসেজ ক্লোজ করলে পেজ রিফ্রেশ হবে
+        };
+
         window.filterMeds = () => {
             const term = document.getElementById('search-med').value.toLowerCase();
             document.querySelectorAll('.med-row').forEach(row => row.style.display = row.innerText.toLowerCase().includes(term) ? "grid" : "none");
         };
     </script>
 </body>
-          </html>
+    </html>
