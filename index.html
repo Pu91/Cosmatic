@@ -11,6 +11,8 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <!-- Excel Export Library (SheetJS) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Barcode Generator Library (New) -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     
     <style>
         /* Cosmetic Pink Theme Colors */
@@ -183,6 +185,23 @@
         .btn-refresh {
             background: none; border: 1px solid white; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;
         }
+
+        /* Print Layout Styles (Invisible on Screen) */
+        #print-area { display: none; }
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { 
+                display: grid !important; 
+                grid-template-columns: repeat(4, 1fr); 
+                gap: 10px; 
+                position: absolute; left: 0; top: 0; width: 100%; 
+                padding: 10mm;
+            }
+            .print-barcode-item { 
+                text-align: center; border: 1px solid #eee; padding: 5px; 
+            }
+        }
     </style>
 </head>
 <body>
@@ -195,6 +214,9 @@
         <p id="msgText">Saved Successfully!</p>
         <button onclick="closeMsg()" style="background:white; border:none; padding:10px 20px; border-radius:5px; color:var(--primary-color); font-weight:bold; cursor:pointer;">OK</button>
     </div>
+
+    <!-- Hidden Print Container -->
+    <div id="print-area"></div>
 
     <!-- Modal for Views -->
     <div id="detailModal">
@@ -231,10 +253,11 @@
                     <h3>Sell Page</h3>
                     <p>New Bill</p>
                 </div>
-                <div class="menu-card" onclick="goToPage('page-report')">
-                    <i class="fas fa-chart-line"></i>
-                    <h3>Reports</h3>
-                    <p>Sales Data</p>
+                <!-- New Barcode Card -->
+                <div class="menu-card" onclick="goToPage('page-barcode-gen')">
+                    <i class="fas fa-barcode"></i>
+                    <h3>Generate Barcode</h3>
+                    <p>Print Tags</p>
                 </div>
             </div>
 
@@ -254,12 +277,24 @@
                     <h3>No Stock</h3>
                     <p id="no-count" style="color:#555; font-weight:bold;">0 items</p>
                 </div>
-                <div class="menu-card" onclick="location.reload()">
-                    <i class="fas fa-rotate" style="color:var(--info)"></i>
-                    <h3>Sync</h3>
-                    <p>Update Now</p>
+                <div class="menu-card" onclick="goToPage('page-report')">
+                    <i class="fas fa-chart-line"></i>
+                    <h3>Reports</h3>
+                    <p>Sales Data</p>
                 </div>
             </div>
+        </section>
+
+        <!-- BARCODE GENERATOR PAGE -->
+        <section id="page-barcode-gen" class="section-page">
+            <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+            <h2>Barcode Generator</h2>
+            <div class="form-group">
+                <input type="text" id="gen-barcode-text" placeholder="Enter Barcode Text (e.g. 100203)">
+                <input type="number" id="gen-barcode-qty" placeholder="How many barcodes? (e.g. 20)">
+                <button class="btn-main" onclick="prepareBarcodePrint()"><i class="fas fa-print"></i> GENERATE & PRINT A4</button>
+            </div>
+            <p style="font-size: 12px; color: #777; text-align: center;">It will automatically arrange barcodes for A4 size printing.</p>
         </section>
 
         <!-- ADD PRODUCT PAGE -->
@@ -327,7 +362,7 @@
                 <div id="cart-render" style="margin-top:10px;"></div>
                 <hr>
                 <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span id="subtotal">0</span></div>
-                <input type="number" id="discount" placeholder="Discount" value="0" oninput="calculateTotal()">
+                <input type="number" id="discount" placeholder="Discount (%)" value="0" oninput="calculateTotal()">
                 <div style="display:flex; justify-content:space-between; font-weight:bold; color:var(--primary-color); margin-top:10px;">
                     <span>Grand Total:</span><span id="grand-total">0</span>
                 </div>
@@ -399,7 +434,7 @@
         <!-- NO STOCK PAGE -->
         <section id="page-nostock" class="section-page">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <button onclick="goToPage('home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
                 <button class="btn-download" onclick="exportFilteredToExcel('no')"><i class="fas fa-file-excel"></i> Download XL</button>
             </div>
             <h2>Out of Stock Products</h2>
@@ -454,7 +489,7 @@
         let allSalesForExport = [];
         let html5QrCode = null;
         let myChart = null;
-        let tempSelectedMed = null; // গ্লোবাল ভেরিয়েবল
+        let tempSelectedMed = null; 
 
         const playSuccess = () => document.getElementById('sound-success').play();
         const playError = () => document.getElementById('sound-error').play();
@@ -472,6 +507,36 @@
                 document.querySelectorAll('.foot-item')[3].classList.add('active');
                 fetchDashboardStats();
             }
+        };
+
+        // --- BARCODE PRINT LOGIC ---
+        window.prepareBarcodePrint = () => {
+            const text = document.getElementById('gen-barcode-text').value;
+            const qty = parseInt(document.getElementById('gen-barcode-qty').value);
+            if(!text || !qty || qty <= 0) return alert("Enter valid text and quantity!");
+
+            const printArea = document.getElementById('print-area');
+            printArea.innerHTML = ""; // Clear old
+
+            for(let i=0; i<qty; i++) {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = "print-barcode-item";
+                const svgId = `barcode-svg-${i}`;
+                itemDiv.innerHTML = `<svg id="${svgId}"></svg>`;
+                printArea.appendChild(itemDiv);
+                
+                JsBarcode(`#${svgId}`, text, {
+                    format: "CODE128",
+                    width: 1.5,
+                    height: 40,
+                    displayValue: true,
+                    fontSize: 12
+                });
+            }
+
+            setTimeout(() => {
+                window.print();
+            }, 500);
         };
 
         // --- EXPORT LOGIC ---
@@ -557,7 +622,6 @@
             ).catch(err => alert("Camera Error: " + err));
         };
 
-        // বারকোড সেল ফাংশন
         function handleBarcodeSell(barcode) {
             const med = medicines.find(m => m.barcode === barcode);
             if(med) {
@@ -570,7 +634,6 @@
         }
         window.handleBarcodeSell = handleBarcodeSell;
 
-        // --- SEARCH & SELECTION LOGIC ---
         window.searchToSell = () => {
             const term = document.getElementById('sell-search').value.toLowerCase();
             const popup = document.getElementById('sell-popup');
@@ -598,6 +661,8 @@
 
         window.confirmAddToCart = () => {
             if(!tempSelectedMed) return alert("Select a product first!");
+            if(tempSelectedMed.stock <= 0) { playError(); return alert("Stock 0! Cannot add."); }
+
             const qty = parseInt(document.getElementById('input-qty').value);
             if(!qty || qty <= 0) return alert("Enter valid quantity!");
             if(qty > tempSelectedMed.stock) return alert("Not enough stock!");
@@ -625,7 +690,6 @@
             calculateTotal();
         }
 
-        // --- DASHBOARD & MEDICINE LOGIC ---
         async function fetchDashboardStats() {
             const snap = await getDocs(collection(db, "sales"));
             let today = new Date().toISOString().split('T')[0];
@@ -737,7 +801,7 @@
             if(id) await updateDoc(doc(db, "medicines", id), data);
             else await addDoc(collection(db, "medicines"), data);
             
-            showMsg("Saved Successfully! Page will refresh.");
+            showMsg("Saved Successfully!");
         };
 
         window.viewMedicine = (id) => {
@@ -791,7 +855,7 @@
                 const mRef = doc(db, "medicines", item.id);
                 await updateDoc(mRef, { stock: item.stock - item.qty });
             }
-            showMsg("Sale Confirmed! Page will refresh.");
+            showMsg("Sale Confirmed!");
         };
 
         window.loadReport = async () => {
@@ -818,36 +882,23 @@
         };
 
         window.closeDetailModal = () => document.getElementById('detailModal').style.display = 'none';
-        
-        window.cancelSelection = () => { 
-            document.getElementById('qty-box').style.display = "none"; 
-            document.getElementById('sell-search').value = ""; 
-            tempSelectedMed = null;
-        };
-        
+        window.cancelSelection = () => { document.getElementById('qty-box').style.display = "none"; document.getElementById('sell-search').value = ""; tempSelectedMed = null; };
         window.removeFromCart = (index) => { cart.splice(index, 1); renderCart(); };
         window.resetCart = () => { if(confirm("Clear cart?")) { cart = []; renderCart(); } };
         
         window.calculateTotal = () => {
             const sub = parseFloat(document.getElementById('subtotal').innerText);
-            const disc = parseFloat(document.getElementById('discount').value) || 0;
-            document.getElementById('grand-total').innerText = sub - disc;
+            const discPercent = parseFloat(document.getElementById('discount').value) || 0;
+            const discAmt = (sub * discPercent) / 100;
+            document.getElementById('grand-total').innerText = (sub - discAmt).toFixed(2);
         };
 
-        function showMsg(txt) { 
-            document.getElementById('msgText').innerText = txt; 
-            document.getElementById('msgBox').style.display = 'block'; 
-        }
-
-        window.closeMsg = () => { 
-            document.getElementById('msgBox').style.display = 'none'; 
-            location.reload(); // মেসেজ ক্লোজ করলে পেজ রিফ্রেশ হবে
-        };
-
+        function showMsg(txt) { document.getElementById('msgText').innerText = txt; document.getElementById('msgBox').style.display = 'block'; }
+        window.closeMsg = () => { document.getElementById('msgBox').style.display = 'none'; location.reload(); };
         window.filterMeds = () => {
             const term = document.getElementById('search-med').value.toLowerCase();
             document.querySelectorAll('.med-row').forEach(row => row.style.display = row.innerText.toLowerCase().includes(term) ? "grid" : "none");
         };
     </script>
 </body>
-    </html>
+                </html>
