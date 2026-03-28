@@ -25,6 +25,7 @@
             --danger: #e74c3c;
             --info: #3498db;
             --warning: #f39c12;
+            --success: #27ae60;
         }
 
         body {
@@ -100,7 +101,7 @@
             width: 100%; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer;
         }
 
-        #reader, #reader-sell {
+        #reader, #reader-sell, #reader-update {
             width: 100%; border-radius: 10px; overflow: hidden; margin-bottom: 10px; background: #eee;
         }
 
@@ -143,6 +144,17 @@
         
         .qty-selection-box {
             background: #fce4ec; padding: 15px; border-radius: 10px; margin: 10px 0; display: none;
+        }
+
+        /* Update Stock Card CSS */
+        .update-card {
+            background: white; border-radius: 15px; padding: 20px; margin-top: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: none;
+        }
+        .update-img { width: 80px; height: 80px; border-radius: 10px; object-fit: cover; border: 2px solid var(--primary-color); }
+        .stock-box-container {
+            display: flex; align-items: center; gap: 10px; margin-top: 15px;
+            background: #fff5f8; padding: 10px; border-radius: 10px;
         }
 
         .cart-box { background: #fff; padding: 15px; border-radius: 15px; margin-top: 20px; border: 1px solid var(--primary-color); }
@@ -248,6 +260,12 @@
                     <h3>View Stock</h3>
                     <p id="total-med-count">Total: 0</p>
                 </div>
+                <!-- STOCK UPDATE CARD -->
+                <div class="menu-card" onclick="goToPage('page-update-stock')">
+                    <i class="fas fa-pen-to-square" style="color:var(--success)"></i>
+                    <h3 style="color:var(--success)">Update Stock</h3>
+                    <p>Edit & Add Stock</p>
+                </div>
                 <div class="menu-card" onclick="goToPage('page-sell')">
                     <i class="fas fa-cart-shopping"></i>
                     <h3>Sell Page</h3>
@@ -285,6 +303,46 @@
             </div>
         </section>
 
+        <!-- UPDATE STOCK PAGE -->
+        <section id="page-update-stock" class="section-page">
+            <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+            <h2>Update Stock</h2>
+            <div class="form-group">
+                <div id="reader-update"></div>
+                <button onclick="startScanner('stock-search-input', false, true)" style="background:#444; color:white; border:none; padding:12px; border-radius:8px; width:100%; margin-bottom:10px;"><i class="fas fa-camera"></i> SCAN BARCODE</button>
+                <div style="position:relative;">
+                    <input type="text" id="stock-search-input" placeholder="Search by name or barcode..." onkeyup="searchToUpdate()">
+                    <div id="update-popup" class="search-popup"></div>
+                </div>
+            </div>
+
+            <div id="update-result-card" class="update-card">
+                <div style="display:flex; gap:15px; align-items:flex-start;">
+                    <img id="u-img" class="update-img" src="">
+                    <div style="flex:1;">
+                        <h3 id="u-name" style="margin:0; color:var(--primary-color);">Product Name</h3>
+                        <p id="u-barcode" style="margin:5px 0; font-size:12px; color:#777;">Barcode: ---</p>
+                        <div style="display:flex; gap:10px; margin-top:10px;">
+                            <button class="btn-action btn-view" id="u-view-btn"><i class="fas fa-eye"></i> View</button>
+                            <button class="btn-action btn-edit" id="u-edit-btn"><i class="fas fa-edit"></i> Edit</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stock-box-container">
+                    <div style="flex:1;">
+                        <span style="font-size:12px; color:#888;">Current Stock:</span>
+                        <div id="u-current-stock" style="font-size:20px; font-weight:bold; color:var(--primary-color);">0</div>
+                    </div>
+                    <div style="flex:1.5;">
+                        <span style="font-size:12px; color:#888;">Add Quantity:</span>
+                        <input type="number" id="u-new-qty" value="0" style="margin:5px 0; padding:8px;">
+                    </div>
+                </div>
+                <button class="btn-main" style="margin-top:15px;" onclick="saveStockQuick()">UPDATE STOCK NOW</button>
+            </div>
+        </section>
+
         <!-- BARCODE GENERATOR PAGE -->
         <section id="page-barcode-gen" class="section-page">
             <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
@@ -307,7 +365,11 @@
                 <input type="hidden" id="edit-id">
                 <input type="text" id="m-barcode" placeholder="Barcode Number">
                 <input type="text" id="m-name" placeholder="Product Name">
-                <input type="number" id="m-price" placeholder="Price">
+                <input type="text" id="m-batch" placeholder="Batch No">
+                <input type="number" id="m-price" placeholder="MRP (Price)">
+                <input type="number" id="m-rate" placeholder="Sale Rate">
+                <input type="number" id="m-disc" placeholder="Discount (%)">
+                <input type="number" id="m-gst" placeholder="GST (%)">
                 <input type="number" id="m-stock" placeholder="Stock Quantity">
                 <label style="font-size: 12px; color: #777;">Expiry Date:</label>
                 <input type="date" id="m-expiry">
@@ -490,6 +552,7 @@
         let html5QrCode = null;
         let myChart = null;
         let tempSelectedMed = null; 
+        let selectedMedForUpdate = null;
 
         const playSuccess = () => document.getElementById('sound-success').play();
         const playError = () => document.getElementById('sound-error').play();
@@ -503,6 +566,11 @@
             if(pageId === 'page-home') document.querySelectorAll('.foot-item')[0].classList.add('active');
             if(pageId === 'page-view-med') document.querySelectorAll('.foot-item')[1].classList.add('active');
             if(pageId === 'page-sell') document.querySelectorAll('.foot-item')[2].classList.add('active');
+            if(pageId === 'page-update-stock') { 
+                selectedMedForUpdate = null; 
+                document.getElementById('update-result-card').style.display = 'none';
+                document.getElementById('stock-search-input').value = "";
+            }
             if(pageId === 'page-report') {
                 document.querySelectorAll('.foot-item')[3].classList.add('active');
                 fetchDashboardStats();
@@ -605,21 +673,80 @@
         }
 
         // --- SCANNER LOGIC ---
-        window.startScanner = (inputId, autoSell = false) => {
-            const readerId = autoSell ? "reader-sell" : "reader";
+        window.startScanner = (inputId, autoSell = false, isUpdate = false) => {
+            let readerId = "reader";
+            if(autoSell) readerId = "reader-sell";
+            if(isUpdate) readerId = "reader-update";
+
             if(html5QrCode) html5QrCode.stop();
             html5QrCode = new Html5Qrcode(readerId);
             html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
                 (decodedText) => {
                     document.getElementById(inputId).value = decodedText;
-                    if(autoSell) {
-                        handleBarcodeSell(decodedText);
-                    } else {
-                        playSuccess();
-                        html5QrCode.stop();
-                    }
+                    if(autoSell) handleBarcodeSell(decodedText);
+                    else if(isUpdate) handleBarcodeUpdate(decodedText);
+                    else { playSuccess(); html5QrCode.stop(); }
                 }
-            ).catch(err => alert("Camera Error: " + err));
+            ).catch(err => console.log(err));
+        };
+
+        // --- UPDATE STOCK LOGIC ---
+        function handleBarcodeUpdate(barcode) {
+            const med = medicines.find(m => m.barcode === barcode);
+            if(med) {
+                playSuccess();
+                if(html5QrCode) html5QrCode.stop();
+                showProductInUpdateCard(med);
+            } else {
+                playError();
+                alert("Product not found!");
+            }
+        }
+        window.handleBarcodeUpdate = handleBarcodeUpdate;
+
+        window.searchToUpdate = () => {
+            const term = document.getElementById('stock-search-input').value.toLowerCase();
+            const popup = document.getElementById('update-popup');
+            popup.innerHTML = ""; if(!term) return;
+            const filtered = medicines.filter(m => m.name.toLowerCase().includes(term) || (m.barcode && m.barcode.includes(term)));
+            filtered.forEach(m => {
+                const div = document.createElement('div');
+                div.className = "search-item";
+                div.innerHTML = `<span>${m.name}</span> <b>Stock: ${m.stock}</b>`;
+                div.onclick = () => showProductInUpdateCard(m);
+                popup.appendChild(div);
+            });
+        };
+
+        function showProductInUpdateCard(med) {
+            selectedMedForUpdate = med;
+            document.getElementById('update-popup').innerHTML = "";
+            document.getElementById('stock-search-input').value = med.name;
+            document.getElementById('update-result-card').style.display = 'block';
+            
+            document.getElementById('u-img').src = med.imgUrl || 'https://via.placeholder.com/80';
+            document.getElementById('u-name').innerText = med.name;
+            document.getElementById('u-barcode').innerText = "Barcode: " + (med.barcode || 'N/A');
+            document.getElementById('u-current-stock').innerText = med.stock;
+            document.getElementById('u-new-qty').value = 0;
+
+            document.getElementById('u-view-btn').onclick = () => viewMedicine(med.id);
+            document.getElementById('u-edit-btn').onclick = () => editMed(med.id);
+        }
+
+        window.saveStockQuick = async () => {
+            if(!selectedMedForUpdate) return;
+            const addQty = parseInt(document.getElementById('u-new-qty').value);
+            if(isNaN(addQty)) return alert("Enter valid quantity");
+            
+            const newTotalStock = selectedMedForUpdate.stock + addQty;
+            const mRef = doc(db, "medicines", selectedMedForUpdate.id);
+            await updateDoc(mRef, { stock: newTotalStock });
+            
+            playSuccess();
+            showMsg("Stock Updated Successfully!");
+            document.getElementById('update-result-card').style.display = 'none';
+            document.getElementById('stock-search-input').value = "";
         };
 
         function handleBarcodeSell(barcode) {
@@ -743,7 +870,7 @@
                             <h4>${m.name}</h4>
                             <span>${m.category} | ${m.barcode || 'No BC'}</span>
                         </div>
-                        <div style="font-weight:bold;">${m.price}</div>
+                        <div style="font-weight:bold;">${m.rate || m.price}</div>
                         <div style="color:${m.stock < 5 ? 'red' : 'green'}">${m.stock}</div>
                         <div class="action-btns-cell">
                             <button class="btn-action btn-view" onclick="viewMedicine('${m.id}')"><i class="fas fa-eye"></i></button>
@@ -790,8 +917,12 @@
             const data = {
                 barcode: document.getElementById('m-barcode').value,
                 name: document.getElementById('m-name').value,
-                price: parseFloat(document.getElementById('m-price').value),
-                stock: parseInt(document.getElementById('m-stock').value),
+                batchNo: document.getElementById('m-batch').value || "",
+                price: parseFloat(document.getElementById('m-price').value) || 0,
+                rate: parseFloat(document.getElementById('m-rate').value) || 0,
+                discount: parseFloat(document.getElementById('m-disc').value) || 0,
+                gst: parseFloat(document.getElementById('m-gst').value) || 0,
+                stock: parseInt(document.getElementById('m-stock').value) || 0,
                 expiryDate: document.getElementById('m-expiry').value,
                 category: document.getElementById('m-cat').value,
                 imgUrl: document.getElementById('m-img').value
@@ -810,7 +941,10 @@
                 <div style="text-align:center;"><img src="${m.imgUrl || 'https://via.placeholder.com/50'}" style="width:100px; height:100px; border-radius:10px; object-fit:cover;"></div>
                 <h3 style="color:var(--primary-color); text-align:center; margin:10px 0;">${m.name}</h3>
                 <table class="report-table" style="width:100%;">
-                    <tr><td><b>Price</b></td><td>${m.price}</td></tr>
+                    <tr><td><b>Batch No</b></td><td>${m.batchNo || 'N/A'}</td></tr>
+                    <tr><td><b>MRP (Price)</b></td><td>${m.price}</td></tr>
+                    <tr><td><b>Sale Rate</b></td><td>${m.rate || m.price}</td></tr>
+                    <tr><td><b>Disc / GST</b></td><td>${m.discount}% / ${m.gst}%</td></tr>
                     <tr><td><b>Stock</b></td><td>${m.stock}</td></tr>
                     <tr><td><b>Barcode</b></td><td>${m.barcode || 'N/A'}</td></tr>
                     <tr><td><b>Category</b></td><td>${m.category || 'N/A'}</td></tr>
@@ -825,7 +959,11 @@
             document.getElementById('edit-id').value = m.id;
             document.getElementById('m-barcode').value = m.barcode || "";
             document.getElementById('m-name').value = m.name;
+            document.getElementById('m-batch').value = m.batchNo || "";
             document.getElementById('m-price').value = m.price;
+            document.getElementById('m-rate').value = m.rate || "";
+            document.getElementById('m-disc').value = m.discount || "";
+            document.getElementById('m-gst').value = m.gst || "";
             document.getElementById('m-stock').value = m.stock;
             document.getElementById('m-expiry').value = m.expiryDate || "";
             document.getElementById('m-cat').value = m.category;
@@ -901,4 +1039,4 @@
         };
     </script>
 </body>
-                </html>
+        </html>
