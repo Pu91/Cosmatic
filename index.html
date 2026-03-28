@@ -198,11 +198,29 @@
             background: none; border: 1px solid white; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;
         }
 
+        /* --- INVOICE STYLES --- */
+        .invoice-wrapper {
+            background: white; padding: 10px; border: 1px solid #333; width: 100%; max-width: 800px; margin: auto; color: #000; font-size: 12px;
+        }
+        .inv-header-table { width: 100%; border-collapse: collapse; border: 1px solid #000; }
+        .inv-header-table td { border: 1px solid #000; padding: 5px; vertical-align: top; }
+        
+        .inv-main-table { width: 100%; border-collapse: collapse; margin-top: -1px; }
+        .inv-main-table th, .inv-main-table td { border: 1px solid #000; padding: 4px; text-align: left; }
+        .inv-main-table th { background: #f2f2f2; }
+        
+        .editable-field { border: none; border-bottom: 1px dashed #ccc; width: 100%; outline: none; font-family: inherit; font-size: inherit; }
+
+        @media print {
+            body * { visibility: hidden; }
+            .invoice-wrapper, .invoice-wrapper * { visibility: visible; }
+            .invoice-wrapper { position: absolute; top: 0; left: 0; border: none; }
+            .no-print { display: none; }
+        }
+
         /* Print Layout Styles (Invisible on Screen) */
         #print-area { display: none; }
         @media print {
-            body * { visibility: hidden; }
-            #print-area, #print-area * { visibility: visible; }
             #print-area { 
                 display: grid !important; 
                 grid-template-columns: repeat(4, 1fr); 
@@ -235,6 +253,23 @@
         <div class="modal-content">
             <span class="close-modal" onclick="closeDetailModal()">&times;</span>
             <div id="modal-data-render" style="overflow-x:auto;"></div>
+        </div>
+    </div>
+
+    <!-- Customer Form Modal -->
+    <div id="customerModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:4000; justify-content:center; align-items:center;">
+        <div class="modal-content" style="max-width:400px;">
+            <h3 style="color:var(--primary-color); margin-top:0;">Customer Details</h3>
+            <input type="text" id="cust-name" placeholder="Customer Name">
+            <div style="display:flex; gap:10px;">
+                <input type="number" id="cust-age" placeholder="Age">
+                <select id="cust-gender"><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select>
+            </div>
+            <input type="number" id="cust-phone" placeholder="Mobile Number">
+            <input type="email" id="cust-email" placeholder="Email (Optional)">
+            <input type="text" id="cust-dr" placeholder="Doctor Name (Optional)">
+            <button class="btn-main" onclick="finalizeSaleAndInvoice()">SELL & PRINT BILL</button>
+            <button onclick="document.getElementById('customerModal').style.display='none'" style="width:100%; margin-top:10px; background:#ccc; border:none; padding:10px; border-radius:8px; cursor:pointer;">Cancel</button>
         </div>
     </div>
 
@@ -429,7 +464,70 @@
                     <span>Grand Total:</span><span id="grand-total">0</span>
                 </div>
                 <select id="pay-mode"><option value="Offline">Cash</option><option value="Online">Online</option></select>
-                <button class="btn-main" onclick="processSale()">CONFIRM SALE (PAY)</button>
+                <button class="btn-main" onclick="openCustomerForm()">CONFIRM SALE (PAY)</button>
+            </div>
+        </section>
+
+        <!-- --- INVOICE PAGE (DYNAMIC) --- -->
+        <section id="page-invoice" class="section-page">
+            <div class="no-print" style="margin-bottom:15px; display:flex; gap:10px;">
+                <button onclick="goToPage('page-sell')" style="background:#444; color:white; padding:10px; border-radius:5px; border:none; cursor:pointer;"><i class="fas fa-arrow-left"></i> Back to Sell</button>
+                <button onclick="window.print()" style="background:var(--primary-color); color:white; padding:10px; border-radius:5px; border:none; cursor:pointer;"><i class="fas fa-print"></i> Print Invoice</button>
+            </div>
+
+            <div class="invoice-wrapper">
+                <table class="inv-header-table">
+                    <tr>
+                        <td width="40%" style="font-weight:bold; font-size:16px;">
+                            💄 COSMO STORE<br>
+                            <span style="font-weight:normal; font-size:10px;">Address Line 1, City, PIN 123456<br>Mob: +91 0000000000</span>
+                        </td>
+                        <td width="30%" align="center">
+                            <div style="font-weight:bold; font-size:18px;">Invoice</div>
+                            <div style="border-top:1px solid #000; margin-top:5px; padding-top:5px;">
+                                Inv No: <span id="inv-no-display">---</span><br>
+                                Date: <span id="inv-date-display">---</span>
+                            </div>
+                        </td>
+                        <td width="30%">
+                            Customer: <span id="inv-cust-name" style="font-weight:bold;">---</span><br>
+                            Age/Gender: <span id="inv-cust-age-gen">---</span><br>
+                            Phone: <span id="inv-cust-phone">---</span><br>
+                            Dr. Name: <span id="inv-cust-dr">---</span>
+                        </td>
+                    </tr>
+                </table>
+
+                <table class="inv-main-table">
+                    <thead>
+                        <tr>
+                            <th width="5%">S.N</th>
+                            <th width="35%">Particulars</th>
+                            <th width="10%">Batch No.</th>
+                            <th width="5%">Qty</th>
+                            <th width="15%">Expiry Date</th>
+                            <th width="10%">Dis(%)</th>
+                            <th width="10%">MRP</th>
+                            <th width="10%">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inv-items-render"></tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="6" align="right" style="font-weight:bold;">Applied Discount: <span id="inv-disc-percent">0</span>%</td>
+                            <td align="right" style="font-weight:bold;">Grand Total</td>
+                            <td id="inv-total-display" style="font-weight:bold;">0.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div style="margin-top:15px;">
+                    <b>Terms and condition :</b>
+                    <ul style="margin:5px 0; padding-left:20px; font-size:10px;">
+                        <li>Goods once sold will not be taken back.</li>
+                        <li>This is a computer generated invoice.</li>
+                    </ul>
+                </div>
             </div>
         </section>
 
@@ -460,7 +558,7 @@
             
             <div class="report-container">
                 <table class="report-table">
-                    <thead><tr><th>SL</th><th>Amount</th><th>Action</th></tr></thead>
+                    <thead><tr><th>SL</th><th>Customer</th><th>Amount</th><th>Action</th></tr></thead>
                     <tbody id="report-list"></tbody>
                 </table>
             </div>
@@ -635,6 +733,7 @@
                 sale.items.forEach(item => {
                     data.push({
                         'Date': sale.date,
+                        'Customer': sale.customerName,
                         'Product': item.name,
                         'Qty': item.qty,
                         'Price': item.price,
@@ -974,27 +1073,97 @@
 
         window.deleteMed = async (id) => { if(confirm("Are you sure?")) await deleteDoc(doc(db, "medicines", id)); };
 
-        window.processSale = async () => {
+        // --- NEW SALE PROCESS ---
+        window.openCustomerForm = () => {
             if(cart.length === 0) return alert("Cart is empty!");
-            playSuccess(); 
+            document.getElementById('customerModal').style.display = 'flex';
+        };
+
+        window.finalizeSaleAndInvoice = async () => {
+            const custName = document.getElementById('cust-name').value;
+            const custAge = document.getElementById('cust-age').value;
+            const custGen = document.getElementById('cust-gender').value;
+            const custPhone = document.getElementById('cust-phone').value;
+            const custEmail = document.getElementById('cust-email').value;
+            const custDr = document.getElementById('cust-dr').value;
+
+            if(!custName || !custPhone) return alert("Customer Name and Phone are required!");
+
+            playSuccess();
+            const sub = parseFloat(document.getElementById('subtotal').innerText);
+            const discPercent = parseFloat(document.getElementById('discount').value) || 0;
             const grand = parseFloat(document.getElementById('grand-total').innerText);
+            
+            // Get exact date of sale
             const today = new Date().toISOString().split('T')[0];
+            const invNo = Math.floor(10000000 + Math.random() * 90000000);
+
             const saleObj = {
-                items: cart.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
-                subtotal: parseFloat(document.getElementById('subtotal').innerText),
-                discount: parseFloat(document.getElementById('discount').value) || 0,
+                customerName: custName,
+                customerAge: custAge,
+                customerGender: custGen,
+                customerPhone: custPhone,
+                customerEmail: custEmail,
+                drName: custDr,
+                items: cart.map(i => ({ 
+                    name: i.name, 
+                    qty: i.qty, 
+                    price: i.price, 
+                    batch: i.batchNo || 'N/A', 
+                    expiry: i.expiryDate || 'N/A', 
+                    disc: i.discount || 0 
+                })),
+                subtotal: sub,
+                discount: discPercent,
                 total: grand,
                 payment: document.getElementById('pay-mode').value,
                 date: today,
+                invNo: invNo,
                 timestamp: serverTimestamp()
             };
+
             await addDoc(collection(db, "sales"), saleObj);
+
+            // Update Stock
             for(let item of cart) {
                 const mRef = doc(db, "medicines", item.id);
                 await updateDoc(mRef, { stock: item.stock - item.qty });
             }
-            showMsg("Sale Confirmed!");
+
+            renderInvoice(saleObj);
+            document.getElementById('customerModal').style.display = 'none';
+            cart = [];
+            renderCart();
+            goToPage('page-invoice');
         };
+
+        function renderInvoice(sale) {
+            document.getElementById('inv-no-display').innerText = sale.invNo;
+            document.getElementById('inv-date-display').innerText = sale.date; // ডাইনামিক সেল তারিখ
+            document.getElementById('inv-cust-name').innerText = sale.customerName;
+            document.getElementById('inv-cust-age-gen').innerText = sale.customerAge + " / " + sale.customerGender;
+            document.getElementById('inv-cust-phone').innerText = sale.customerPhone;
+            document.getElementById('inv-cust-dr').innerText = sale.drName || "Self";
+            document.getElementById('inv-total-display').innerText = sale.total.toFixed(2);
+            
+            // কার্ট পেজের ডিসকাউন্ট (%) ইনভয়েসে দেখাচ্ছি
+            document.getElementById('inv-disc-percent').innerText = sale.discount;
+
+            let html = "";
+            sale.items.forEach((item, index) => {
+                html += `<tr>
+                    <td>${index + 1}</td>
+                    <td>${item.name}</td>
+                    <td>${item.batch}</td>
+                    <td>${item.qty}</td>
+                    <td>${item.expiry}</td>
+                    <td>${item.disc}%</td>
+                    <td>${item.price}</td>
+                    <td>${(item.qty * item.price).toFixed(2)}</td>
+                </tr>`;
+            });
+            document.getElementById('inv-items-render').innerHTML = html;
+        }
 
         window.loadReport = async () => {
             const selDate = document.getElementById('report-date').value;
@@ -1004,19 +1173,16 @@
             snap.forEach(doc => {
                 const s = doc.data(); s.docId = doc.id;
                 salesList.push(s); totalAmt += s.total;
-                html += `<tr><td>${sl++}</td><td><b>${s.total}</b></td><td><button onclick="viewSaleDetails('${s.docId}')" style="background:var(--info); color:white; border:none; padding:5px 10px; border-radius:5px;">View</button></td></tr>`;
+                html += `<tr><td>${sl++}</td><td>${s.customerName}</td><td><b>${s.total}</b></td><td><button onclick="viewSaleDetails('${s.docId}')" style="background:var(--info); color:white; border:none; padding:5px 10px; border-radius:5px;">View Bill</button></td></tr>`;
             });
             document.getElementById('report-total-amt').innerText = "Total Sale: " + totalAmt;
-            document.getElementById('report-list').innerHTML = html || "<tr><td colspan='3' style='text-align:center;'>No Data</td></tr>";
+            document.getElementById('report-list').innerHTML = html || "<tr><td colspan='4' style='text-align:center;'>No Data</td></tr>";
         };
 
         window.viewSaleDetails = (id) => {
             const sale = salesList.find(s => s.docId === id);
-            let itemsHtml = `<table class="report-table" style="min-width:100%;"><thead><tr><th>Name</th><th>Qty</th><th>Price</th></tr></thead><tbody>`;
-            sale.items.forEach(item => { itemsHtml += `<tr><td>${item.name}</td><td>${item.qty}</td><td>${item.price * item.qty}</td></tr>`; });
-            itemsHtml += `</tbody></table><div style="margin-top:10px;"><b>Total: ${sale.total}</b><br><small>Payment: ${sale.payment}</small></div>`;
-            document.getElementById('modal-data-render').innerHTML = itemsHtml;
-            document.getElementById('detailModal').style.display = 'flex';
+            renderInvoice(sale);
+            goToPage('page-invoice');
         };
 
         window.closeDetailModal = () => document.getElementById('detailModal').style.display = 'none';
@@ -1039,4 +1205,4 @@
         };
     </script>
 </body>
-        </html>
+    </html>
