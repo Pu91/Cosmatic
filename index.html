@@ -9,9 +9,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Barcode Scanner Library -->
     <script src="https://unpkg.com/html5-qrcode"></script>
-    <!-- Excel Export Library (SheetJS) -->
+    <!-- Excel Export Library (SheetJS) - Kept for compatibility -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Barcode Generator Library (New) -->
+    <!-- Barcode Generator Library -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     
     <style>
@@ -198,27 +198,48 @@
             background: none; border: 1px solid white; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;
         }
 
-        /* --- INVOICE STYLES --- */
+        /* --- UPDATED THERMAL INVOICE STYLES (58mm) --- */
         .invoice-wrapper {
-            background: white; padding: 10px; border: 1px solid #333; width: 100%; max-width: 800px; margin: auto; color: #000; font-size: 12px;
+            width: 54mm; 
+            margin: auto;
+            background: white;
+            padding: 5px;
+            font-family: 'Courier New', Courier, monospace;
+            color: #000;
         }
-        .inv-header-table { width: 100%; border-collapse: collapse; border: 1px solid #000; }
-        .inv-header-table td { border: 1px solid #000; padding: 5px; vertical-align: top; }
         
-        .inv-main-table { width: 100%; border-collapse: collapse; margin-top: -1px; }
-        .inv-main-table th, .inv-main-table td { border: 1px solid #000; padding: 4px; text-align: left; }
-        .inv-main-table th { background: #f2f2f2; }
-        
-        .editable-field { border: none; border-bottom: 1px dashed #ccc; width: 100%; outline: none; font-family: inherit; font-size: inherit; }
-
         @media print {
             body * { visibility: hidden; }
-            .invoice-wrapper, .invoice-wrapper * { visibility: visible; }
-            .invoice-wrapper { position: absolute; top: 0; left: 0; border: none; }
-            .no-print { display: none; }
+            .invoice-wrapper, .invoice-wrapper *, #print-section, #print-section * { visibility: visible; }
+            #print-section { position: absolute; left: 0; top: 0; width: 100%; background: white; padding: 20px; }
+            .invoice-wrapper { 
+                position: absolute; left: 0; top: 0; width: 58mm; 
+                margin: 0; padding: 0; border: none;
+            }
+            .no-print { display: none !important; }
         }
 
-        /* Print Layout Styles (Invisible on Screen) */
+        .thermal-header { text-align: center; margin-bottom: 10px; }
+        .thermal-logo { width: 50px; height: 50px; object-fit: cover; border-radius: 50%; margin-bottom: 5px; }
+        .thermal-shop-name { font-size: 18px; font-weight: bold; text-transform: uppercase; display: block; }
+        .thermal-shop-info { font-size: 10px; line-height: 1.2; }
+
+        .thermal-box { border: 1px solid #000; margin-top: 10px; }
+        .thermal-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .thermal-table th { border-bottom: 1px solid #000; padding: 4px 2px; text-align: left; }
+        .thermal-table td { padding: 4px 2px; border-bottom: 0.5px dashed #ccc; }
+
+        .thermal-summary { text-align: right; margin-top: 10px; font-size: 12px; }
+        .thermal-summary b { font-size: 14px; }
+        
+        .qr-section { text-align: center; margin-top: 15px; }
+        .qr-section img { width: 100px; height: 100px; }
+        .thanks-msg { font-size: 10px; text-align: center; margin-top: 5px; font-weight: bold; }
+
+        /* Print Area for Lists */
+        #print-section { display: none; }
+
+        /* Print Layout for Barcodes */
         #print-area { display: none; }
         @media print {
             #print-area { 
@@ -237,16 +258,19 @@
 <body>
 
     <!-- Sound Effects -->
-    <audio id="sound-success" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"></audio>
-    <audio id="sound-error" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"></audio>
+    <audio id="sound-success" src="/store calculation app/record_2026-03-27_15-11-56.mp3"></audio>
+    <audio id="sound-error" src="/store calculation app/record_2026-03-27_15-11-56.mp3"></audio>
 
     <div id="msgBox" class="message-box">
         <p id="msgText">Saved Successfully!</p>
         <button onclick="closeMsg()" style="background:white; border:none; padding:10px 20px; border-radius:5px; color:var(--primary-color); font-weight:bold; cursor:pointer;">OK</button>
     </div>
 
-    <!-- Hidden Print Container -->
+    <!-- Hidden Print Container for Barcodes -->
     <div id="print-area"></div>
+    
+    <!-- Hidden Print Container for Lists -->
+    <div id="print-section"></div>
 
     <!-- Modal for Views -->
     <div id="detailModal">
@@ -260,20 +284,19 @@
     <div id="customerModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:4000; justify-content:center; align-items:center;">
         <div class="modal-content" style="max-width:400px;">
             <h3 style="color:var(--primary-color); margin-top:0;">Customer Details</h3>
-            <input type="text" id="cust-name" placeholder="Customer Name">
+            <input type="text" id="cust-name" placeholder="Customer Name (optional)">
             <div style="display:flex; gap:10px;">
                 <input type="number" id="cust-age" placeholder="Age">
                 <select id="cust-gender"><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select>
             </div>
-            <input type="number" id="cust-phone" placeholder="Mobile Number">
-            <input type="email" id="cust-email" placeholder="Email (Optional)">
-            <input type="text" id="cust-dr" placeholder="Doctor Name (Optional)">
+            <input type="number" id="cust-phone" placeholder="Mobile Number (optional)">
+          
             <button class="btn-main" onclick="finalizeSaleAndInvoice()">SELL & PRINT BILL</button>
             <button onclick="document.getElementById('customerModal').style.display='none'" style="width:100%; margin-top:10px; background:#ccc; border:none; padding:10px; border-radius:8px; cursor:pointer;">Cancel</button>
         </div>
     </div>
 
-    <header>
+    <header class="no-print">
         <div class="store-name">💄 CosmoStore</div>
         <button class="btn-refresh" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
         <div class="profile-icon"><i class="fas fa-user-circle"></i></div>
@@ -282,9 +305,9 @@
     <main>
         <!-- HOME DASHBOARD PAGE -->
         <section id="page-home" class="section-page active-page">
-            <h2 style="margin-top:0; color: #555;">Dashboard</h2>
+            <h2 style="margin-top:0; color: #555;" class="no-print">Dashboard</h2>
             
-            <div class="dashboard-grid">
+            <div class="dashboard-grid no-print">
                 <div class="menu-card" onclick="goToPage('page-add-med')">
                     <i class="fas fa-plus-circle"></i>
                     <h3>Add Product</h3>
@@ -295,7 +318,6 @@
                     <h3>View Stock</h3>
                     <p id="total-med-count">Total: 0</p>
                 </div>
-                <!-- STOCK UPDATE CARD -->
                 <div class="menu-card" onclick="goToPage('page-update-stock')">
                     <i class="fas fa-pen-to-square" style="color:var(--success)"></i>
                     <h3 style="color:var(--success)">Update Stock</h3>
@@ -306,7 +328,6 @@
                     <h3>Sell Page</h3>
                     <p>New Bill</p>
                 </div>
-                <!-- New Barcode Card -->
                 <div class="menu-card" onclick="goToPage('page-barcode-gen')">
                     <i class="fas fa-barcode"></i>
                     <h3>Generate Barcode</h3>
@@ -314,7 +335,7 @@
                 </div>
             </div>
 
-            <div class="dashboard-grid" style="margin-top:25px;">
+            <div class="dashboard-grid no-print" style="margin-top:25px;">
                 <div class="menu-card card-expired" onclick="goToPage('page-expired')">
                     <i class="fas fa-calendar-xmark" style="color:var(--danger)"></i>
                     <h3>Expired</h3>
@@ -340,9 +361,9 @@
 
         <!-- UPDATE STOCK PAGE -->
         <section id="page-update-stock" class="section-page">
-            <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+            <button class="no-print" onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
             <h2>Update Stock</h2>
-            <div class="form-group">
+            <div class="form-group no-print">
                 <div id="reader-update"></div>
                 <button onclick="startScanner('stock-search-input', false, true)" style="background:#444; color:white; border:none; padding:12px; border-radius:8px; width:100%; margin-bottom:10px;"><i class="fas fa-camera"></i> SCAN BARCODE</button>
                 <div style="position:relative;">
@@ -351,7 +372,7 @@
                 </div>
             </div>
 
-            <div id="update-result-card" class="update-card">
+            <div id="update-result-card" class="update-card no-print">
                 <div style="display:flex; gap:15px; align-items:flex-start;">
                     <img id="u-img" class="update-img" src="">
                     <div style="flex:1;">
@@ -380,31 +401,28 @@
 
         <!-- BARCODE GENERATOR PAGE -->
         <section id="page-barcode-gen" class="section-page">
-            <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-            <h2>Barcode Generator</h2>
-            <div class="form-group">
+            <button class="no-print" onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+            <h2 class="no-print">Barcode Generator</h2>
+            <div class="form-group no-print">
                 <input type="text" id="gen-barcode-text" placeholder="Enter Barcode Text (e.g. 100203)">
                 <input type="number" id="gen-barcode-qty" placeholder="How many barcodes? (e.g. 20)">
                 <button class="btn-main" onclick="prepareBarcodePrint()"><i class="fas fa-print"></i> GENERATE & PRINT A4</button>
             </div>
-            <p style="font-size: 12px; color: #777; text-align: center;">It will automatically arrange barcodes for A4 size printing.</p>
+            <p class="no-print" style="font-size: 12px; color: #777; text-align: center;">It will automatically arrange barcodes for A4 size printing.</p>
         </section>
 
         <!-- ADD PRODUCT PAGE -->
         <section id="page-add-med" class="section-page">
-            <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+            <button class="no-print" onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
             <h2 id="form-title">Add New Product</h2>
-            <div class="form-group">
+            <div class="form-group no-print">
                 <div id="reader"></div>
                 <button onclick="startScanner('m-barcode')" style="background:#444; color:white; border:none; padding:10px; border-radius:8px; width:100%; margin-bottom:10px;"><i class="fas fa-camera"></i> SCAN BARCODE</button>
                 <input type="hidden" id="edit-id">
                 <input type="text" id="m-barcode" placeholder="Barcode Number">
                 <input type="text" id="m-name" placeholder="Product Name">
-                <input type="text" id="m-batch" placeholder="Batch No">
                 <input type="number" id="m-price" placeholder="MRP (Price)">
                 <input type="number" id="m-rate" placeholder="Sale Rate">
-                <input type="number" id="m-disc" placeholder="Discount (%)">
-                <input type="number" id="m-gst" placeholder="GST (%)">
                 <input type="number" id="m-stock" placeholder="Stock Quantity">
                 <label style="font-size: 12px; color: #777;">Expiry Date:</label>
                 <input type="date" id="m-expiry">
@@ -416,13 +434,13 @@
 
         <!-- VIEW STOCK PAGE -->
         <section id="page-view-med" class="section-page">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; justify-content:space-between; align-items:center;" class="no-print">
                 <h2>Inventory</h2>
-                <button class="btn-download" onclick="exportStockToExcel()"><i class="fas fa-file-excel"></i> Download XL</button>
+                <button class="btn-download" onclick="printTableData('med-list-render', 'Current Inventory Report')"><i class="fas fa-print"></i> Print List</button>
             </div>
-            <input type="text" id="search-med" placeholder="Search by name..." onkeyup="filterMeds()">
+            <input type="text" id="search-med" placeholder="Search by name..." onkeyup="filterMeds()" class="no-print">
             <div class="med-list-container">
-                <div class="med-header">
+                <div class="med-header no-print">
                     <div>Image</div><div>Name</div><div>Price</div><div>Stock</div><div>Actions</div>
                 </div>
                 <div id="med-list-render"></div>
@@ -431,8 +449,8 @@
 
         <!-- SELL PAGE -->
         <section id="page-sell" class="section-page">
-            <h2>Create Billing</h2>
-            <div class="form-group">
+            <h2 class="no-print">Create Billing</h2>
+            <div class="form-group no-print">
                 <div id="reader-sell"></div>
                 <button onclick="startScanner('sell-barcode', true)" style="background:#444; color:white; border:none; padding:12px; border-radius:8px; width:100%; margin-bottom:10px; font-weight:bold;"><i class="fas fa-barcode"></i> SCAN PRODUCT</button>
                 <div style="position:relative;">
@@ -442,7 +460,7 @@
                 <input type="hidden" id="sell-barcode">
             </div>
 
-            <div id="qty-box" class="qty-selection-box">
+            <div id="qty-box" class="qty-selection-box no-print">
                 <h4 id="selected-med-name" style="margin:0 0 10px 0; color:var(--primary-color);">Product Name</h4>
                 <div style="display:flex; gap:10px;">
                     <input type="number" id="input-qty" placeholder="Qty" min="1" style="margin:0;">
@@ -451,7 +469,7 @@
                 </div>
             </div>
 
-            <div class="cart-box">
+            <div class="cart-box no-print">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <h3 style="margin:0;">Cart List</h3>
                     <button onclick="resetCart()" style="color:red; background:none; border:none; cursor:pointer;"><i class="fas fa-trash-alt"></i> Reset</button>
@@ -468,97 +486,89 @@
             </div>
         </section>
 
-        <!-- --- INVOICE PAGE (DYNAMIC) --- -->
+        <!-- THERMAL INVOICE PAGE -->
         <section id="page-invoice" class="section-page">
             <div class="no-print" style="margin-bottom:15px; display:flex; gap:10px;">
-                <button onclick="goToPage('page-sell')" style="background:#444; color:white; padding:10px; border-radius:5px; border:none; cursor:pointer;"><i class="fas fa-arrow-left"></i> Back to Sell</button>
-                <button onclick="window.print()" style="background:var(--primary-color); color:white; padding:10px; border-radius:5px; border:none; cursor:pointer;"><i class="fas fa-print"></i> Print Invoice</button>
+                <button onclick="goToPage('page-sell')" style="background:#444; color:white; padding:10px; border-radius:5px; border:none; cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <button onclick="window.print()" style="background:var(--primary-color); color:white; padding:10px; border-radius:5px; border:none; cursor:pointer;"><i class="fas fa-print"></i> Print Receipt</button>
             </div>
 
             <div class="invoice-wrapper">
-                <table class="inv-header-table">
-                    <tr>
-                        <td width="40%" style="font-weight:bold; font-size:16px;">
-                            💄 COSMO STORE<br>
-                            <span style="font-weight:normal; font-size:10px;">Address Line 1, City, PIN 123456<br>Mob: +91 0000000000</span>
-                        </td>
-                        <td width="30%" align="center">
-                            <div style="font-weight:bold; font-size:18px;">Invoice</div>
-                            <div style="border-top:1px solid #000; margin-top:5px; padding-top:5px;">
-                                Inv No: <span id="inv-no-display">---</span><br>
-                                Date: <span id="inv-date-display">---</span>
-                            </div>
-                        </td>
-                        <td width="30%">
-                            Customer: <span id="inv-cust-name" style="font-weight:bold;">---</span><br>
-                            Age/Gender: <span id="inv-cust-age-gen">---</span><br>
-                            Phone: <span id="inv-cust-phone">---</span><br>
-                            Dr. Name: <span id="inv-cust-dr">---</span>
-                        </td>
-                    </tr>
-                </table>
+                <div class="thermal-header">
+                    <img src="https://via.placeholder.com/100" class="thermal-logo">
+                    <span class="thermal-shop-name">💄 COSMO STORE</span>
+                    <div class="thermal-shop-info">
+                        City, PIN 123456, India<br>
+                        Mob: +91 0000000000<br>
+                        ---------------------------
+                    </div>
+                </div>
 
-                <table class="inv-main-table">
-                    <thead>
-                        <tr>
-                            <th width="5%">S.N</th>
-                            <th width="35%">Particulars</th>
-                            <th width="10%">Batch No.</th>
-                            <th width="5%">Qty</th>
-                            <th width="15%">Expiry Date</th>
-                            <th width="10%">Dis(%)</th>
-                            <th width="10%">MRP</th>
-                            <th width="10%">Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inv-items-render"></tbody>
-                    <tfoot>
-                        <tr>
-                            <td colspan="6" align="right" style="font-weight:bold;">Applied Discount: <span id="inv-disc-percent">0</span>%</td>
-                            <td align="right" style="font-weight:bold;">Grand Total</td>
-                            <td id="inv-total-display" style="font-weight:bold;">0.00</td>
-                        </tr>
-                    </tfoot>
-                </table>
+                <div style="font-size: 10px; line-height: 1.4; margin-bottom: 5px;">
+                    Date: <span id="inv-date-display"></span><br>
+                    Bill: #<span id="inv-no-display"></span><br>
+                    Cust: <span id="inv-cust-name"></span><br>
+                    Phone: <span id="inv-cust-phone"></span>
+                </div>
 
-                <div style="margin-top:15px;">
-                    <b>Terms and condition :</b>
-                    <ul style="margin:5px 0; padding-left:20px; font-size:10px;">
-                        <li>Goods once sold will not be taken back.</li>
-                        <li>This is a computer generated invoice.</li>
-                    </ul>
+                <div class="thermal-box">
+                    <table class="thermal-table">
+                        <thead>
+                            <tr>
+                                <th width="60%">Items</th>
+                                <th width="15%" style="text-align:center;">Qty</th>
+                                <th width="25%" style="text-align:right;">Amt</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inv-items-render"></tbody>
+                    </table>
+                </div>
+
+                <div class="thermal-summary">
+                    Sub Total: ₹<span id="inv-sub-disp">0</span><br>
+                    Discount: <span id="inv-disc-percent">0</span>%<br>
+                    ---------------------------<br>
+                    <b>TOTAL: ₹<span id="inv-total-display">0.00</span></b>
+                </div>
+
+                <div class="qr-section">
+                    <div id="upi-qr"></div>
+                    <div class="thanks-msg">SCAN TO PAY VIA UPI</div>
+                </div>
+
+                <div class="thanks-msg" style="margin-top:10px; border-top: 1px dashed #000; padding-top: 5px;">
+                    *** THANK YOU ! VISIT AGAIN ***<br>
+                    <span style="font-size: 8px;">Goods once sold cannot be returned</span>
                 </div>
             </div>
         </section>
 
         <!-- REPORT PAGE -->
         <section id="page-report" class="section-page">
-            <h2>Sales Analysis</h2>
+            <h2 class="no-print">Sales Analysis</h2>
             
-            <div class="stats-row">
+            <div class="stats-row no-print">
                 <div class="stat-box"><h4>Today</h4><div id="stat-today">0</div></div>
                 <div class="stat-box"><h4>Yesterday</h4><div id="stat-yest">0</div></div>
                 <div class="stat-box"><h4>Monthly</h4><div id="stat-month">0</div></div>
             </div>
 
-            <div class="graph-container">
+            <div class="graph-container no-print">
                 <canvas id="salesChart" height="200"></canvas>
             </div>
 
-            <div style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;">
-                <button class="btn-download" onclick="exportSalesReport('today')"><i class="fas fa-file-excel"></i> Today XL</button>
-                <button class="btn-download" onclick="exportSalesReport('yesterday')"><i class="fas fa-file-excel"></i> Yesterday XL</button>
-                <button class="btn-download" onclick="exportSalesReport('month')"><i class="fas fa-file-excel"></i> Monthly XL</button>
+            <div style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;" class="no-print">
+                <button class="btn-download" onclick="printTableData('report-list', 'Sales Report')"><i class="fas fa-print"></i> Print Report</button>
             </div>
 
-            <input type="date" id="report-date" onchange="loadReport()" style="margin-top:15px;">
-            <div class="form-group" style="margin-top:10px; background:var(--primary-color); color:white; text-align:center;">
+            <input type="date" id="report-date" onchange="loadReport()" style="margin-top:15px;" class="no-print">
+            <div class="form-group no-print" style="margin-top:10px; background:var(--primary-color); color:white; text-align:center;">
                 <h3 id="report-total-amt">Total Sale: 0</h3>
             </div>
             
             <div class="report-container">
                 <table class="report-table">
-                    <thead><tr><th>SL</th><th>Customer</th><th>Amount</th><th>Action</th></tr></thead>
+                    <thead><tr><th>SL</th><th>Customer</th><th>Amount</th><th class="no-print">Action</th></tr></thead>
                     <tbody id="report-list"></tbody>
                 </table>
             </div>
@@ -566,24 +576,21 @@
 
         <!-- EXPIRED PRODUCTS PAGE -->
         <section id="page-expired" class="section-page">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; justify-content:space-between; align-items:center;" class="no-print">
                 <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-                <button class="btn-download" onclick="exportFilteredToExcel('expired')"><i class="fas fa-file-excel"></i> Download XL</button>
+                <button class="btn-download" onclick="printTableData('expired-list', 'Expired Products Report')"><i class="fas fa-print"></i> Print List</button>
             </div>
             <h2>Expired Products</h2>
             <div class="med-list-container">
-                <div class="med-header" style="background:#ffdada;">
-                    <div>Image</div><div>Name</div><div>Price</div><div>Stock</div><div>Expiry Date</div>
-                </div>
                 <div id="expired-list"></div>
             </div>
         </section>
 
         <!-- LOW STOCK PAGE -->
         <section id="page-lowstock" class="section-page">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; justify-content:space-between; align-items:center;" class="no-print">
                 <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-                <button class="btn-download" onclick="exportFilteredToExcel('low')"><i class="fas fa-file-excel"></i> Download XL</button>
+                <button class="btn-download" onclick="printTableData('lowstock-list', 'Low Stock Report')"><i class="fas fa-print"></i> Print List</button>
             </div>
             <h2>Low Stock Products</h2>
             <div class="med-list-container">
@@ -593,9 +600,9 @@
 
         <!-- NO STOCK PAGE -->
         <section id="page-nostock" class="section-page">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; justify-content:space-between; align-items:center;" class="no-print">
                 <button onclick="goToPage('home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-                <button class="btn-download" onclick="exportFilteredToExcel('no')"><i class="fas fa-file-excel"></i> Download XL</button>
+                <button class="btn-download" onclick="printTableData('nostock-list', 'Out of Stock Report')"><i class="fas fa-print"></i> Print List</button>
             </div>
             <h2>Out of Stock Products</h2>
             <div class="med-list-container">
@@ -605,7 +612,7 @@
     </main>
 
     <!-- FOOTER -->
-    <footer>
+    <footer class="no-print">
         <div class="foot-item active" onclick="goToPage('page-home')">
             <i class="fas fa-house"></i>
             <span>Home</span>
@@ -629,6 +636,7 @@
         import { getFirestore, collection, addDoc, getDocs, onSnapshot, doc, updateDoc, deleteDoc, query, where, serverTimestamp } 
         from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+        // Firebase Configuration - (আপনার দেওয়া কনফিগ)
         const firebaseConfig = {
           apiKey: "AIzaSyD_MJAYCk5JZuOn6_YwsBC86gBKxwC_EKY",
           authDomain: "cosmatic-a7f73.firebaseapp.com",
@@ -652,6 +660,7 @@
         let tempSelectedMed = null; 
         let selectedMedForUpdate = null;
 
+        // Sound Functions
         const playSuccess = () => document.getElementById('sound-success').play();
         const playError = () => document.getElementById('sound-error').play();
 
@@ -664,25 +673,27 @@
             if(pageId === 'page-home') document.querySelectorAll('.foot-item')[0].classList.add('active');
             if(pageId === 'page-view-med') document.querySelectorAll('.foot-item')[1].classList.add('active');
             if(pageId === 'page-sell') document.querySelectorAll('.foot-item')[2].classList.add('active');
-            if(pageId === 'page-update-stock') { 
-                selectedMedForUpdate = null; 
-                document.getElementById('update-result-card').style.display = 'none';
-                document.getElementById('stock-search-input').value = "";
-            }
             if(pageId === 'page-report') {
                 document.querySelectorAll('.foot-item')[3].classList.add('active');
                 fetchDashboardStats();
             }
         };
 
-        // --- BARCODE PRINT LOGIC ---
+        // --- PRINT LOGIC ---
+        window.printTableData = (divId, title) => {
+            const content = document.getElementById(divId).innerHTML;
+            const printBox = document.getElementById('print-section');
+            printBox.innerHTML = `<h1>${title}</h1>` + content;
+            window.print();
+        };
+
         window.prepareBarcodePrint = () => {
             const text = document.getElementById('gen-barcode-text').value;
             const qty = parseInt(document.getElementById('gen-barcode-qty').value);
             if(!text || !qty || qty <= 0) return alert("Enter valid text and quantity!");
 
             const printArea = document.getElementById('print-area');
-            printArea.innerHTML = ""; // Clear old
+            printArea.innerHTML = ""; 
 
             for(let i=0; i<qty; i++) {
                 const itemDiv = document.createElement('div');
@@ -704,72 +715,6 @@
                 window.print();
             }, 500);
         };
-
-        // --- EXPORT LOGIC ---
-        window.exportStockToExcel = () => {
-            const data = medicines.map(m => ({
-                'Product Name': m.name, 
-                'Price': m.price, 
-                'Stock': m.stock, 
-                'Barcode': m.barcode || 'N/A', 
-                'Expiry Date': m.expiryDate || 'N/A', 
-                'Category': m.category || 'N/A'
-            }));
-            downloadXL(data, "Inventory_Report");
-        };
-
-        window.exportSalesReport = (type) => {
-            let today = new Date().toISOString().split('T')[0];
-            let y = new Date(); y.setDate(y.getDate() - 1);
-            let yesterday = y.toISOString().split('T')[0];
-            let filtered = [];
-
-            if(type === 'today') filtered = allSalesForExport.filter(s => s.date === today);
-            else if(type === 'yesterday') filtered = allSalesForExport.filter(s => s.date === yesterday);
-            else if(type === 'month') filtered = allSalesForExport.filter(s => s.date.startsWith(today.slice(0, 7)));
-
-            const data = [];
-            filtered.forEach(sale => {
-                sale.items.forEach(item => {
-                    data.push({
-                        'Date': sale.date,
-                        'Customer': sale.customerName,
-                        'Product': item.name,
-                        'Qty': item.qty,
-                        'Price': item.price,
-                        'Total': item.qty * item.price,
-                        'Grand Total': sale.total,
-                        'Payment': sale.payment
-                    });
-                });
-            });
-            downloadXL(data, `Sales_Report_${type}`);
-        };
-
-        window.exportFilteredToExcel = (type) => {
-            let today = new Date().toISOString().split('T')[0];
-            let list = [];
-            if(type === 'expired') list = medicines.filter(m => m.expiryDate && m.expiryDate <= today);
-            else if(type === 'low') list = medicines.filter(m => m.stock > 0 && m.stock < 5);
-            else if(type === 'no') list = medicines.filter(m => m.stock <= 0);
-
-            const data = list.map(m => ({
-                'Product Name': m.name, 
-                'Price': m.price, 
-                'Current Stock': m.stock, 
-                'Expiry': m.expiryDate, 
-                'Category': m.category
-            }));
-            downloadXL(data, `${type}_Products_Report`);
-        };
-
-        function downloadXL(data, filename) {
-            if(data.length === 0) { alert("No data available!"); return; }
-            const worksheet = XLSX.utils.json_to_sheet(data);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-            XLSX.writeFile(workbook, `${filename}_${new Date().toLocaleDateString()}.xlsx`);
-        }
 
         // --- SCANNER LOGIC ---
         window.startScanner = (inputId, autoSell = false, isUpdate = false) => {
@@ -893,7 +838,7 @@
             if(!qty || qty <= 0) return alert("Enter valid quantity!");
             if(qty > tempSelectedMed.stock) return alert("Not enough stock!");
             
-            playSuccess(); 
+            playSuccess(); // SOUND ON ADD TO CART
             const existing = cart.find(c => c.id === tempSelectedMed.id);
             if(existing) existing.qty += qty;
             else cart.push({ ...tempSelectedMed, qty: qty });
@@ -971,7 +916,7 @@
                         </div>
                         <div style="font-weight:bold;">${m.rate || m.price}</div>
                         <div style="color:${m.stock < 5 ? 'red' : 'green'}">${m.stock}</div>
-                        <div class="action-btns-cell">
+                        <div class="action-btns-cell no-print">
                             <button class="btn-action btn-view" onclick="viewMedicine('${m.id}')"><i class="fas fa-eye"></i></button>
                             <button class="btn-action btn-edit" onclick="editMed('${m.id}')"><i class="fas fa-edit"></i></button>
                             <button class="btn-action btn-del" onclick="deleteMed('${m.id}')"><i class="fas fa-trash"></i></button>
@@ -1016,11 +961,8 @@
             const data = {
                 barcode: document.getElementById('m-barcode').value,
                 name: document.getElementById('m-name').value,
-                batchNo: document.getElementById('m-batch').value || "",
                 price: parseFloat(document.getElementById('m-price').value) || 0,
                 rate: parseFloat(document.getElementById('m-rate').value) || 0,
-                discount: parseFloat(document.getElementById('m-disc').value) || 0,
-                gst: parseFloat(document.getElementById('m-gst').value) || 0,
                 stock: parseInt(document.getElementById('m-stock').value) || 0,
                 expiryDate: document.getElementById('m-expiry').value,
                 category: document.getElementById('m-cat').value,
@@ -1031,6 +973,7 @@
             if(id) await updateDoc(doc(db, "medicines", id), data);
             else await addDoc(collection(db, "medicines"), data);
             
+            playSuccess(); // SOUND ON ADD PRODUCT
             showMsg("Saved Successfully!");
         };
 
@@ -1040,10 +983,8 @@
                 <div style="text-align:center;"><img src="${m.imgUrl || 'https://via.placeholder.com/50'}" style="width:100px; height:100px; border-radius:10px; object-fit:cover;"></div>
                 <h3 style="color:var(--primary-color); text-align:center; margin:10px 0;">${m.name}</h3>
                 <table class="report-table" style="width:100%;">
-                    <tr><td><b>Batch No</b></td><td>${m.batchNo || 'N/A'}</td></tr>
                     <tr><td><b>MRP (Price)</b></td><td>${m.price}</td></tr>
                     <tr><td><b>Sale Rate</b></td><td>${m.rate || m.price}</td></tr>
-                    <tr><td><b>Disc / GST</b></td><td>${m.discount}% / ${m.gst}%</td></tr>
                     <tr><td><b>Stock</b></td><td>${m.stock}</td></tr>
                     <tr><td><b>Barcode</b></td><td>${m.barcode || 'N/A'}</td></tr>
                     <tr><td><b>Category</b></td><td>${m.category || 'N/A'}</td></tr>
@@ -1058,11 +999,8 @@
             document.getElementById('edit-id').value = m.id;
             document.getElementById('m-barcode').value = m.barcode || "";
             document.getElementById('m-name').value = m.name;
-            document.getElementById('m-batch').value = m.batchNo || "";
             document.getElementById('m-price').value = m.price;
             document.getElementById('m-rate').value = m.rate || "";
-            document.getElementById('m-disc').value = m.discount || "";
-            document.getElementById('m-gst').value = m.gst || "";
             document.getElementById('m-stock').value = m.stock;
             document.getElementById('m-expiry').value = m.expiryDate || "";
             document.getElementById('m-cat').value = m.category;
@@ -1080,39 +1018,22 @@
         };
 
         window.finalizeSaleAndInvoice = async () => {
-            const custName = document.getElementById('cust-name').value;
-            const custAge = document.getElementById('cust-age').value;
-            const custGen = document.getElementById('cust-gender').value;
-            const custPhone = document.getElementById('cust-phone').value;
-            const custEmail = document.getElementById('cust-email').value;
-            const custDr = document.getElementById('cust-dr').value;
+            const custName = document.getElementById('cust-name').value || "Walk-in Customer"; 
+            const custPhone = document.getElementById('cust-phone').value || "N/A";
 
             if(!custName || !custPhone) return alert("Customer Name and Phone are required!");
 
-            playSuccess();
+            playSuccess(); // SOUND ON CONFIRM SELL
             const sub = parseFloat(document.getElementById('subtotal').innerText);
             const discPercent = parseFloat(document.getElementById('discount').value) || 0;
             const grand = parseFloat(document.getElementById('grand-total').innerText);
-            
-            // Get exact date of sale
             const today = new Date().toISOString().split('T')[0];
             const invNo = Math.floor(10000000 + Math.random() * 90000000);
 
             const saleObj = {
                 customerName: custName,
-                customerAge: custAge,
-                customerGender: custGen,
                 customerPhone: custPhone,
-                customerEmail: custEmail,
-                drName: custDr,
-                items: cart.map(i => ({ 
-                    name: i.name, 
-                    qty: i.qty, 
-                    price: i.price, 
-                    batch: i.batchNo || 'N/A', 
-                    expiry: i.expiryDate || 'N/A', 
-                    disc: i.discount || 0 
-                })),
+                items: cart.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
                 subtotal: sub,
                 discount: discPercent,
                 total: grand,
@@ -1124,7 +1045,6 @@
 
             await addDoc(collection(db, "sales"), saleObj);
 
-            // Update Stock
             for(let item of cart) {
                 const mRef = doc(db, "medicines", item.id);
                 await updateDoc(mRef, { stock: item.stock - item.qty });
@@ -1139,30 +1059,27 @@
 
         function renderInvoice(sale) {
             document.getElementById('inv-no-display').innerText = sale.invNo;
-            document.getElementById('inv-date-display').innerText = sale.date; // ডাইনামিক সেল তারিখ
+            document.getElementById('inv-date-display').innerText = sale.date;
             document.getElementById('inv-cust-name').innerText = sale.customerName;
-            document.getElementById('inv-cust-age-gen').innerText = sale.customerAge + " / " + sale.customerGender;
             document.getElementById('inv-cust-phone').innerText = sale.customerPhone;
-            document.getElementById('inv-cust-dr').innerText = sale.drName || "Self";
-            document.getElementById('inv-total-display').innerText = sale.total.toFixed(2);
-            
-            // কার্ট পেজের ডিসকাউন্ট (%) ইনভয়েসে দেখাচ্ছি
+            document.getElementById('inv-sub-disp').innerText = sale.subtotal.toFixed(2);
             document.getElementById('inv-disc-percent').innerText = sale.discount;
+            document.getElementById('inv-total-display').innerText = sale.total.toFixed(2);
 
             let html = "";
             sale.items.forEach((item, index) => {
                 html += `<tr>
-                    <td>${index + 1}</td>
                     <td>${item.name}</td>
-                    <td>${item.batch}</td>
-                    <td>${item.qty}</td>
-                    <td>${item.expiry}</td>
-                    <td>${item.disc}%</td>
-                    <td>${item.price}</td>
-                    <td>${(item.qty * item.price).toFixed(2)}</td>
+                    <td style="text-align:center;">${item.qty}</td>
+                    <td style="text-align:right;">${(item.qty * item.price).toFixed(2)}</td>
                 </tr>`;
             });
             document.getElementById('inv-items-render').innerHTML = html;
+
+            const upiId = "9134873789@ybl"; 
+            const upiUrl = `upi://pay?pa=${upiId}&pn=CosmoStore&am=${sale.total}&cu=INR`;
+            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(upiUrl)}`;
+            document.getElementById('upi-qr').innerHTML = `<img src="${qrCodeUrl}">`;
         }
 
         window.loadReport = async () => {
@@ -1173,7 +1090,7 @@
             snap.forEach(doc => {
                 const s = doc.data(); s.docId = doc.id;
                 salesList.push(s); totalAmt += s.total;
-                html += `<tr><td>${sl++}</td><td>${s.customerName}</td><td><b>${s.total}</b></td><td><button onclick="viewSaleDetails('${s.docId}')" style="background:var(--info); color:white; border:none; padding:5px 10px; border-radius:5px;">View Bill</button></td></tr>`;
+                html += `<tr><td>${sl++}</td><td>${s.customerName}</td><td><b>${s.total}</b></td><td class="no-print"><button onclick="viewSaleDetails('${s.docId}')" style="background:var(--info); color:white; border:none; padding:5px 10px; border-radius:5px;">View Bill</button></td></tr>`;
             });
             document.getElementById('report-total-amt').innerText = "Total Sale: " + totalAmt;
             document.getElementById('report-list').innerHTML = html || "<tr><td colspan='4' style='text-align:center;'>No Data</td></tr>";
