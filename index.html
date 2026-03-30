@@ -136,6 +136,11 @@
             border-radius: 5px; cursor: pointer; font-size: 12px; margin-bottom: 10px;
         }
 
+        .btn-print-table {
+            background: #3498db; color: white; border: none; padding: 8px 12px;
+            border-radius: 5px; cursor: pointer; font-size: 12px; margin-bottom: 10px;
+        }
+
         .search-popup {
             background: white; border: 1px solid #eee; border-radius: 8px;
             max-height: 200px; overflow-y: auto; position: absolute; width: 100%; z-index: 50; box-shadow: 0 5px 10px rgba(0,0,0,0.1);
@@ -146,7 +151,6 @@
             background: #fce4ec; padding: 15px; border-radius: 10px; margin: 10px 0; display: none;
         }
 
-        /* Update Stock Card CSS */
         .update-card {
             background: white; border-radius: 15px; padding: 20px; margin-top: 20px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: none;
@@ -218,46 +222,63 @@
         .inv-qr img { width: 120px; height: 120px; }
         .inv-footer { text-align: center; font-size: 11px; margin-top: 10px; line-height: 1.4; }
 
-        /* --- SEPARATED PRINT STYLES FOR INVOICE & BARCODE --- */
-        #print-area { display: none; }
+        /* --- BARCODE PREVIEW AREA --- */
+        #barcode-preview-area {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .print-barcode-item {
+            text-align: center; border: 1px dashed #ccc; padding: 10px; background: white; border-radius: 5px;
+        }
+
+        /* =========================================================
+           ADVANCED PRINTING LOGIC (ISOLATING INVOICE, BARCODE, TABLE)
+           ========================================================= */
         @media print {
+            body { background: white !important; margin: 0; padding: 0; color: #000; }
+            header, footer, .no-print, button, input, select { display: none !important; }
             body * { visibility: hidden; }
+
+            /* 1. PRINT INVOICE MODE */
+            body.print-invoice #page-invoice,
+            body.print-invoice #page-invoice *,
+            body.print-invoice .invoice-wrapper,
+            body.print-invoice .invoice-wrapper * { visibility: visible; }
+            body.print-invoice .invoice-wrapper { position: absolute; left: 0; top: 0; width: 100%; max-width: none; box-shadow: none; margin: 0; }
             
-            /* --- INVOICE PRINT MODE (Default) --- */
-            body:not(.barcode-mode) #page-invoice { display: block; }
-            body:not(.barcode-mode) .invoice-wrapper, body:not(.barcode-mode) .invoice-wrapper * { visibility: visible; }
-            body:not(.barcode-mode) .invoice-wrapper { position: absolute; top: 0; left: 0; width: 100%; max-width: none; box-shadow: none; padding: 5px; margin: 0; border-radius: 0; }
-            
-            /* --- BARCODE PRINT MODE --- */
-            body.barcode-mode #print-area, body.barcode-mode #print-area * { visibility: visible; }
-            body.barcode-mode #print-area { 
-                display: grid !important; 
-                grid-template-columns: repeat(4, 1fr); 
-                gap: 10px; 
+            /* 2. PRINT BARCODE MODE */
+            body.print-barcode #barcode-preview-area,
+            body.print-barcode #barcode-preview-area * { visibility: visible; }
+            body.print-barcode #barcode-preview-area { 
                 position: absolute; left: 0; top: 0; width: 100%; 
-                padding: 10mm;
+                display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10mm; 
             }
-            body.barcode-mode .print-barcode-item { 
-                text-align: center; border: 1px solid #eee; padding: 5px; 
+
+            /* 3. PRINT TABLE MODE (Inventory, Low Stock, Reports etc) */
+            body.print-table .active-page, 
+            body.print-table .active-page * { visibility: visible; }
+            body.print-table .active-page { position: absolute; left: 0; top: 0; width: 100%; padding: 10px; }
+            body.print-table .action-btns-cell { display: none !important; } /* Hide action column */
+            body.print-table .med-list-container { box-shadow: none; border: 1px solid #ccc; border-radius: 0; }
+            body.print-table .med-header, body.print-table .med-row {
+                grid-template-columns: 60px 2fr 1fr 1fr !important; /* Adjust columns for A4 without action buttons */
+                min-width: 100%; border-bottom: 1px solid #000;
             }
-            
-            .no-print { display: none !important; }
         }
     </style>
 </head>
 <body>
 
     <!-- Sound Effects -->
-    <audio id="sound-success" src="/store calculation app/record_2026-03-27_15-11-56.mp3"></audio>
+    <audio id="sound-success" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"></audio>
     <audio id="sound-error" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"></audio>
 
     <div id="msgBox" class="message-box">
         <p id="msgText">Saved Successfully!</p>
         <button onclick="closeMsg()" style="background:white; border:none; padding:10px 20px; border-radius:5px; color:var(--primary-color); font-weight:bold; cursor:pointer;">OK</button>
     </div>
-
-    <!-- Hidden Print Container For Barcode -->
-    <div id="print-area"></div>
 
     <!-- Modal for Views -->
     <div id="detailModal">
@@ -277,8 +298,6 @@
                 <select id="cust-gender"><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select>
             </div>
             <input type="number" id="cust-phone" placeholder="Mobile Number (Optional)">
-           
-            
             <button class="btn-main" onclick="finalizeSaleAndInvoice()">SELL & PRINT BILL</button>
             <button onclick="document.getElementById('customerModal').style.display='none'" style="width:100%; margin-top:10px; background:#ccc; border:none; padding:10px; border-radius:8px; cursor:pointer;">Cancel</button>
         </div>
@@ -317,14 +336,14 @@
                     <h3>Sell Page</h3>
                     <p>New Bill</p>
                 </div>
-                <!-- Barcode Card -->
+                <!-- Barcode Gen Card -->
                 <div class="menu-card" onclick="goToPage('page-barcode-gen')">
                     <i class="fas fa-barcode"></i>
                     <h3>Generate Barcode</h3>
                     <p>Print Tags</p>
                 </div>
-                <!-- === Website Card Added Here === -->
-                <div class="menu-card" onclick="window.open('zesty-brioche-6ec6cb.netlify.app', '_blank')">
+                <!-- Website Card -->
+                <div class="menu-card" onclick="window.open('https://zesty-brioche-6ec6cb.netlify.app', '_blank')">
                     <i class="fas fa-globe" style="color: #3498db;"></i>
                     <h3>Visit Website</h3>
                     <p>Open Link</p>
@@ -399,12 +418,14 @@
         <section id="page-barcode-gen" class="section-page">
             <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
             <h2>Barcode Generator</h2>
-            <div class="form-group">
+            <div class="form-group no-print">
                 <input type="text" id="gen-barcode-text" placeholder="Enter Barcode Text (e.g. 100203)">
                 <input type="number" id="gen-barcode-qty" placeholder="How many barcodes? (e.g. 20)">
-                <button class="btn-main" onclick="prepareBarcodePrint()"><i class="fas fa-print"></i> GENERATE & PRINT A4</button>
+                <button class="btn-main" onclick="prepareBarcodePrint()"><i class="fas fa-eye"></i> GENERATE PREVIEW</button>
+                <button id="btn-actual-print" class="btn-main" style="display:none; margin-top:10px; background:#27ae60;" onclick="triggerPrint('print-barcode')"><i class="fas fa-print"></i> PRINT A4 BARCODES</button>
             </div>
-            <p style="font-size: 12px; color: #777; text-align: center;">It will automatically arrange barcodes for A4 size printing.</p>
+            
+            <div id="barcode-preview-area"></div>
         </section>
 
         <!-- ADD PRODUCT PAGE -->
@@ -432,12 +453,15 @@
         <section id="page-view-med" class="section-page">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h2>Inventory</h2>
-                <button class="btn-download" onclick="exportStockToExcel()"><i class="fas fa-file-excel"></i> Download XL</button>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-print-table" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
+                    <button class="btn-download" onclick="exportStockToExcel()"><i class="fas fa-file-excel"></i> Download XL</button>
+                </div>
             </div>
-            <input type="text" id="search-med" placeholder="Search by name..." onkeyup="filterMeds()">
+            <input type="text" id="search-med" class="no-print" placeholder="Search by name..." onkeyup="filterMeds()">
             <div class="med-list-container">
                 <div class="med-header">
-                    <div>Image</div><div>Name</div><div>Price</div><div>Stock</div><div>Actions</div>
+                    <div>Image</div><div>Name</div><div>Price</div><div>Stock</div><div class="action-btns-cell">Actions</div>
                 </div>
                 <div id="med-list-render"></div>
             </div>
@@ -482,11 +506,11 @@
             </div>
         </section>
 
-        <!-- --- THERMAL INVOICE PAGE (DYNAMIC) --- -->
+        <!-- THERMAL INVOICE PAGE -->
         <section id="page-invoice" class="section-page">
             <div class="no-print" style="margin-bottom:15px; display:flex; gap:10px; justify-content:center;">
                 <button onclick="goToPage('page-sell')" style="background:#444; color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-arrow-left"></i> Back</button>
-                <button onclick="window.print()" style="background:var(--primary-color); color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-print"></i> Print Receipt</button>
+                <button onclick="triggerPrint('print-invoice')" style="background:var(--primary-color); color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-print"></i> Print Receipt</button>
             </div>
 
             <div class="invoice-wrapper" id="receipt-print-area">
@@ -534,32 +558,35 @@
 
         <!-- REPORT PAGE -->
         <section id="page-report" class="section-page">
-            <h2>Sales Analysis</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h2>Sales Analysis</h2>
+                <button class="btn-print-table no-print" onclick="triggerPrint('print-table')" style="margin-bottom:0;"><i class="fas fa-print"></i> Print Reports</button>
+            </div>
             
-            <div class="stats-row">
+            <div class="stats-row no-print">
                 <div class="stat-box"><h4>Today</h4><div id="stat-today">0</div></div>
                 <div class="stat-box"><h4>Yesterday</h4><div id="stat-yest">0</div></div>
                 <div class="stat-box"><h4>Monthly</h4><div id="stat-month">0</div></div>
             </div>
 
-            <div class="graph-container">
+            <div class="graph-container no-print">
                 <canvas id="salesChart" height="200"></canvas>
             </div>
 
-            <div style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;">
+            <div class="no-print" style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;">
                 <button class="btn-download" onclick="exportSalesReport('today')"><i class="fas fa-file-excel"></i> Today XL</button>
                 <button class="btn-download" onclick="exportSalesReport('yesterday')"><i class="fas fa-file-excel"></i> Yesterday XL</button>
                 <button class="btn-download" onclick="exportSalesReport('month')"><i class="fas fa-file-excel"></i> Monthly XL</button>
             </div>
 
-            <input type="date" id="report-date" onchange="loadReport()" style="margin-top:15px;">
+            <input type="date" id="report-date" class="no-print" onchange="loadReport()" style="margin-top:15px;">
             <div class="form-group" style="margin-top:10px; background:var(--primary-color); color:white; text-align:center;">
                 <h3 id="report-total-amt">Total Sale: 0</h3>
             </div>
             
             <div class="report-container">
                 <table class="report-table">
-                    <thead><tr><th>SL</th><th>Customer</th><th>Amount</th><th>Action</th></tr></thead>
+                    <thead><tr><th>SL</th><th>Customer</th><th>Amount</th><th class="action-btns-cell">Action</th></tr></thead>
                     <tbody id="report-list"></tbody>
                 </table>
             </div>
@@ -568,8 +595,11 @@
         <!-- EXPIRED PRODUCTS PAGE -->
         <section id="page-expired" class="section-page">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-                <button class="btn-download" onclick="exportFilteredToExcel('expired')"><i class="fas fa-file-excel"></i> Download XL</button>
+                <button onclick="goToPage('page-home')" class="no-print" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-print-table no-print" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
+                    <button class="btn-download no-print" onclick="exportFilteredToExcel('expired')"><i class="fas fa-file-excel"></i> Download XL</button>
+                </div>
             </div>
             <h2>Expired Products</h2>
             <div class="med-list-container">
@@ -583,8 +613,11 @@
         <!-- LOW STOCK PAGE -->
         <section id="page-lowstock" class="section-page">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-                <button class="btn-download" onclick="exportFilteredToExcel('low')"><i class="fas fa-file-excel"></i> Download XL</button>
+                <button onclick="goToPage('page-home')" class="no-print" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-print-table no-print" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
+                    <button class="btn-download no-print" onclick="exportFilteredToExcel('low')"><i class="fas fa-file-excel"></i> Download XL</button>
+                </div>
             </div>
             <h2>Low Stock Products</h2>
             <div class="med-list-container">
@@ -595,8 +628,11 @@
         <!-- NO STOCK PAGE -->
         <section id="page-nostock" class="section-page">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <button onclick="goToPage('home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-                <button class="btn-download" onclick="exportFilteredToExcel('no')"><i class="fas fa-file-excel"></i> Download XL</button>
+                <button onclick="goToPage('page-home')" class="no-print" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-print-table no-print" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
+                    <button class="btn-download no-print" onclick="exportFilteredToExcel('no')"><i class="fas fa-file-excel"></i> Download XL</button>
+                </div>
             </div>
             <h2>Out of Stock Products</h2>
             <div class="med-list-container">
@@ -606,7 +642,7 @@
     </main>
 
     <!-- FOOTER -->
-    <footer>
+    <footer class="no-print">
         <div class="foot-item active" onclick="goToPage('page-home')">
             <i class="fas fa-house"></i>
             <span>Home</span>
@@ -637,24 +673,24 @@
           projectId: "cosmatic-a7f73",
           storageBucket: "cosmatic-a7f73.appspot.com",
           messagingSenderId: "693000942896",
-          appId: "1:693000942896:web:5208e137c75e62749c44f5",
-          measurementId: "G-L7FNN9G0NY"
+          appId: "1:693000942896:web:5208e137c75e62749c44f5"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        let medicines = [];
-        let cart =[];
-        let salesList = []; 
-        let allSalesForExport =[];
-        let html5QrCode = null;
-        let myChart = null;
-        let tempSelectedMed = null; 
-        let selectedMedForUpdate = null;
+        let medicines = []; let cart =[]; let salesList = []; let allSalesForExport =[];
+        let html5QrCode = null; let myChart = null; let tempSelectedMed = null; let selectedMedForUpdate = null;
 
-        const playSuccess = () => document.getElementById('sound-success').play();
-        const playError = () => document.getElementById('sound-error').play();
+        const playSuccess = () => { try { document.getElementById('sound-success').play(); } catch(e){} };
+        const playError = () => { try { document.getElementById('sound-error').play(); } catch(e){} };
+
+        // --- MASTER PRINT FUNCTION ---
+        window.triggerPrint = (modeClass) => {
+            document.body.classList.add(modeClass);
+            window.print();
+            setTimeout(() => { document.body.classList.remove(modeClass); }, 500);
+        };
 
         window.goToPage = (pageId) => {
             if(html5QrCode) { html5QrCode.stop(); html5QrCode = null; } 
@@ -676,14 +712,14 @@
             }
         };
 
-        // --- BARCODE PRINT LOGIC (FIXED) ---
+        // --- BARCODE PREVIEW LOGIC ---
         window.prepareBarcodePrint = () => {
             const text = document.getElementById('gen-barcode-text').value;
             const qty = parseInt(document.getElementById('gen-barcode-qty').value);
             if(!text || !qty || qty <= 0) return alert("Enter valid text and quantity!");
 
-            const printArea = document.getElementById('print-area');
-            printArea.innerHTML = ""; // Clear old
+            const printArea = document.getElementById('barcode-preview-area');
+            printArea.innerHTML = "";
 
             for(let i=0; i<qty; i++) {
                 const itemDiv = document.createElement('div');
@@ -692,33 +728,14 @@
                 itemDiv.innerHTML = `<svg id="${svgId}"></svg>`;
                 printArea.appendChild(itemDiv);
                 
-                JsBarcode(`#${svgId}`, text, {
-                    format: "CODE128",
-                    width: 1.5,
-                    height: 40,
-                    displayValue: true,
-                    fontSize: 12
-                });
+                JsBarcode(`#${svgId}`, text, { format: "CODE128", width: 1.5, height: 40, displayValue: true, fontSize: 12 });
             }
-
-            // Add class for barcode print layout, remove after print dialog closes
-            setTimeout(() => {
-                document.body.classList.add("barcode-mode");
-                window.print();
-                setTimeout(() => { document.body.classList.remove("barcode-mode"); }, 1000);
-            }, 500);
+            document.getElementById('btn-actual-print').style.display = "block";
         };
 
         // --- EXPORT LOGIC ---
         window.exportStockToExcel = () => {
-            const data = medicines.map(m => ({
-                'Product Name': m.name, 
-                'Price': m.price, 
-                'Stock': m.stock, 
-                'Barcode': m.barcode || 'N/A', 
-                'Expiry Date': m.expiryDate || 'N/A', 
-                'Category': m.category || 'N/A'
-            }));
+            const data = medicines.map(m => ({ 'Product Name': m.name, 'Price': m.price, 'Stock': m.stock, 'Barcode': m.barcode || 'N/A', 'Expiry Date': m.expiryDate || 'N/A', 'Category': m.category || 'N/A' }));
             downloadXL(data, "Inventory_Report");
         };
 
@@ -734,18 +751,7 @@
 
             const data =[];
             filtered.forEach(sale => {
-                sale.items.forEach(item => {
-                    data.push({
-                        'Date': sale.date,
-                        'Customer': sale.customerName,
-                        'Product': item.name,
-                        'Qty': item.qty,
-                        'Price': item.price,
-                        'Total': item.qty * item.price,
-                        'Grand Total': sale.total,
-                        'Payment': sale.payment
-                    });
-                });
+                sale.items.forEach(item => { data.push({ 'Date': sale.date, 'Customer': sale.customerName, 'Product': item.name, 'Qty': item.qty, 'Price': item.price, 'Total': item.qty * item.price, 'Grand Total': sale.total, 'Payment': sale.payment }); });
             });
             downloadXL(data, `Sales_Report_${type}`);
         };
@@ -757,18 +763,12 @@
             else if(type === 'low') list = medicines.filter(m => m.stock > 0 && m.stock < 5);
             else if(type === 'no') list = medicines.filter(m => m.stock <= 0);
 
-            const data = list.map(m => ({
-                'Product Name': m.name, 
-                'Price': m.price, 
-                'Current Stock': m.stock, 
-                'Expiry': m.expiryDate, 
-                'Category': m.category
-            }));
+            const data = list.map(m => ({ 'Product Name': m.name, 'Price': m.price, 'Current Stock': m.stock, 'Expiry': m.expiryDate, 'Category': m.category }));
             downloadXL(data, `${type}_Products_Report`);
         };
 
         function downloadXL(data, filename) {
-            if(data.length === 0) { alert("No data available!"); return; }
+            if(data.length === 0) return alert("No data available!");
             const worksheet = XLSX.utils.json_to_sheet(data);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
@@ -777,10 +777,7 @@
 
         // --- SCANNER LOGIC ---
         window.startScanner = (inputId, autoSell = false, isUpdate = false) => {
-            let readerId = "reader";
-            if(autoSell) readerId = "reader-sell";
-            if(isUpdate) readerId = "reader-update";
-
+            let readerId = autoSell ? "reader-sell" : (isUpdate ? "reader-update" : "reader");
             if(html5QrCode) html5QrCode.stop();
             html5QrCode = new Html5Qrcode(readerId);
             html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
@@ -796,14 +793,8 @@
         // --- UPDATE STOCK LOGIC ---
         function handleBarcodeUpdate(barcode) {
             const med = medicines.find(m => m.barcode === barcode);
-            if(med) {
-                playSuccess();
-                if(html5QrCode) html5QrCode.stop();
-                showProductInUpdateCard(med);
-            } else {
-                playError();
-                alert("Product not found!");
-            }
+            if(med) { playSuccess(); if(html5QrCode) html5QrCode.stop(); showProductInUpdateCard(med); } 
+            else { playError(); alert("Product not found!"); }
         }
         window.handleBarcodeUpdate = handleBarcodeUpdate;
 
@@ -813,8 +804,7 @@
             popup.innerHTML = ""; if(!term) return;
             const filtered = medicines.filter(m => m.name.toLowerCase().includes(term) || (m.barcode && m.barcode.includes(term)));
             filtered.forEach(m => {
-                const div = document.createElement('div');
-                div.className = "search-item";
+                const div = document.createElement('div'); div.className = "search-item";
                 div.innerHTML = `<span>${m.name}</span> <b>Stock: ${m.stock}</b>`;
                 div.onclick = () => showProductInUpdateCard(m);
                 popup.appendChild(div);
@@ -826,13 +816,11 @@
             document.getElementById('update-popup').innerHTML = "";
             document.getElementById('stock-search-input').value = med.name;
             document.getElementById('update-result-card').style.display = 'block';
-            
             document.getElementById('u-img').src = med.imgUrl || 'https://via.placeholder.com/80';
             document.getElementById('u-name').innerText = med.name;
             document.getElementById('u-barcode').innerText = "Barcode: " + (med.barcode || 'N/A');
             document.getElementById('u-current-stock').innerText = med.stock;
             document.getElementById('u-new-qty').value = 0;
-
             document.getElementById('u-view-btn').onclick = () => viewMedicine(med.id);
             document.getElementById('u-edit-btn').onclick = () => editMed(med.id);
         }
@@ -841,26 +829,17 @@
             if(!selectedMedForUpdate) return;
             const addQty = parseInt(document.getElementById('u-new-qty').value);
             if(isNaN(addQty)) return alert("Enter valid quantity");
-            
             const newTotalStock = selectedMedForUpdate.stock + addQty;
-            const mRef = doc(db, "medicines", selectedMedForUpdate.id);
-            await updateDoc(mRef, { stock: newTotalStock });
-            
-            playSuccess();
-            showMsg("Stock Updated Successfully!");
+            await updateDoc(doc(db, "medicines", selectedMedForUpdate.id), { stock: newTotalStock });
+            playSuccess(); showMsg("Stock Updated Successfully!");
             document.getElementById('update-result-card').style.display = 'none';
             document.getElementById('stock-search-input').value = "";
         };
 
+        // --- SELL LOGIC ---
         function handleBarcodeSell(barcode) {
             const med = medicines.find(m => m.barcode === barcode);
-            if(med) {
-                playSuccess();
-                selectMedForQty(med);
-            } else {
-                playError();
-                alert("Product not found with this Barcode!");
-            }
+            if(med) { playSuccess(); selectMedForQty(med); } else { playError(); alert("Product not found!"); }
         }
         window.handleBarcodeSell = handleBarcodeSell;
 
@@ -870,8 +849,7 @@
             popup.innerHTML = ""; if(!term) return;
             const filtered = medicines.filter(m => m.name.toLowerCase().includes(term) || (m.barcode && m.barcode.includes(term)));
             filtered.forEach(m => {
-                const div = document.createElement('div');
-                div.className = "search-item";
+                const div = document.createElement('div'); div.className = "search-item";
                 div.innerHTML = `<span>${m.name}</span> <b>Stock: ${m.stock}</b>`;
                 div.onclick = () => selectMedForQty(m);
                 popup.appendChild(div);
@@ -891,19 +869,15 @@
 
         window.confirmAddToCart = () => {
             if(!tempSelectedMed) return alert("Select a product first!");
-            if(tempSelectedMed.stock <= 0) { playError(); return alert("Stock 0! Cannot add."); }
-
+            if(tempSelectedMed.stock <= 0) { playError(); return alert("Stock 0!"); }
             const qty = parseInt(document.getElementById('input-qty').value);
             if(!qty || qty <= 0) return alert("Enter valid quantity!");
             if(qty > tempSelectedMed.stock) return alert("Not enough stock!");
             
             playSuccess(); 
             const existing = cart.find(c => c.id === tempSelectedMed.id);
-            if(existing) existing.qty += qty;
-            else cart.push({ ...tempSelectedMed, qty: qty });
-            
-            renderCart();
-            cancelSelection();
+            if(existing) existing.qty += qty; else cart.push({ ...tempSelectedMed, qty: qty });
+            renderCart(); cancelSelection();
         };
 
         function renderCart() {
@@ -920,6 +894,51 @@
             calculateTotal();
         }
 
+        window.openCustomerForm = () => {
+            if(cart.length === 0) return alert("Cart is empty!");
+            document.getElementById('customerModal').style.display = 'flex';
+        };
+
+        window.finalizeSaleAndInvoice = async () => {
+            if (cart.length === 0) return;
+            const custName = document.getElementById('cust-name').value || "Walk-in";
+            const custPhone = document.getElementById('cust-phone').value || "N/A";
+            const sub = parseFloat(document.getElementById('subtotal').innerText) || 0;
+            const discPercent = parseFloat(document.getElementById('discount').value) || 0;
+            const grand = parseFloat(document.getElementById('grand-total').innerText) || 0;
+            const today = new Date().toISOString().split('T')[0];
+            const invNo = Math.floor(100000 + Math.random() * 900000); 
+
+            const saleObj = { customerName: custName, customerPhone: custPhone, items: [...cart], subtotal: sub, discount: discPercent, total: grand, payment: document.getElementById('pay-mode').value, date: today, invNo: invNo };
+
+            renderInvoice(saleObj);
+            document.getElementById('customerModal').style.display = 'none';
+            goToPage('page-invoice'); 
+
+            try {
+                await addDoc(collection(db, "sales"), { ...saleObj, timestamp: serverTimestamp() });
+                for (let item of cart) {
+                    await updateDoc(doc(db, "medicines", item.id), { stock: (item.stock - item.qty) });
+                }
+                cart =[]; renderCart();
+            } catch (err) { console.error("Database Error:", err); }
+        };
+
+        function renderInvoice(sale) {
+            document.getElementById('inv-no-display').innerText = sale.invNo;
+            document.getElementById('inv-date-display').innerText = sale.date;
+            document.getElementById('inv-cust-name').innerText = sale.customerName;
+            document.getElementById('inv-cust-phone').innerText = sale.customerPhone;
+            document.getElementById('inv-sub-display').innerText = sale.subtotal.toFixed(2);
+            document.getElementById('inv-total-display').innerText = sale.total.toFixed(2);
+            document.getElementById('inv-disc-percent').innerText = sale.discount;
+
+            let html = "";
+            sale.items.forEach((item) => { html += `<tr><td>${item.name}</td><td class="text-center">${item.qty}</td><td class="text-right">${(item.qty * item.price).toFixed(2)}</td></tr>`; });
+            document.getElementById('inv-items-render').innerHTML = html;
+        }
+
+        // --- FETCH REALTIME DATA ---
         async function fetchDashboardStats() {
             const snap = await getDocs(collection(db, "sales"));
             let today = new Date().toISOString().split('T')[0];
@@ -930,8 +949,7 @@
             allSalesForExport =[];
 
             snap.forEach(doc => {
-                const s = doc.data();
-                allSalesForExport.push(s);
+                const s = doc.data(); allSalesForExport.push(s);
                 if(s.date === today) todayTotal += s.total;
                 if(s.date === yesterday) yestTotal += s.total;
                 if(s.date.startsWith(currentMonth)) monthTotal += s.total;
@@ -940,39 +958,25 @@
             document.getElementById('stat-today').innerText = todayTotal;
             document.getElementById('stat-yest').innerText = yestTotal;
             document.getElementById('stat-month').innerText = monthTotal;
-            renderGraph(todayTotal, yestTotal, monthTotal);
-        }
-
-        function renderGraph(t, y, m) {
+            
             const ctx = document.getElementById('salesChart').getContext('2d');
             if(myChart) myChart.destroy();
             myChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels:['Yesterday', 'Today', 'Monthly'],
-                    datasets: [{ label: 'Sales', data:[y, t, m], backgroundColor:['#e74c3c', '#d63384', '#3498db'], borderRadius: 5 }]
-                },
+                type: 'bar', data: { labels:['Yesterday', 'Today', 'Monthly'], datasets: [{ label: 'Sales', data:[yestTotal, todayTotal, monthTotal], backgroundColor:['#e74c3c', '#d63384', '#3498db'], borderRadius: 5 }] },
                 options: { responsive: true, plugins: { legend: { display: false } } }
             });
         }
 
         onSnapshot(collection(db, "medicines"), (snapshot) => {
-            medicines =[];
-            let mainHtml = ""; let expiredHtml = ""; let lowHtml = ""; let noHtml = "";
-            let expiredCount = 0; let lowCount = 0; let noCount = 0;
-            let todayStr = new Date().toISOString().split('T')[0];
+            medicines =[]; let mainHtml = ""; let expiredHtml = ""; let lowHtml = ""; let noHtml = "";
+            let expiredCount = 0; let lowCount = 0; let noCount = 0; let todayStr = new Date().toISOString().split('T')[0];
 
             snapshot.forEach(doc => {
-                let m = doc.data(); m.id = doc.id;
-                medicines.push(m);
-
+                let m = doc.data(); m.id = doc.id; medicines.push(m);
                 const rowHtml = `
                     <div class="med-row">
                         <img src="${m.imgUrl || 'https://via.placeholder.com/50'}">
-                        <div class="med-info">
-                            <h4>${m.name}</h4>
-                            <span>${m.category} | ${m.barcode || 'No BC'}</span>
-                        </div>
+                        <div class="med-info"><h4>${m.name}</h4><span>${m.category} | ${m.barcode || 'No BC'}</span></div>
                         <div style="font-weight:bold;">${m.rate || m.price}</div>
                         <div style="color:${m.stock < 5 ? 'red' : 'green'}">${m.stock}</div>
                         <div class="action-btns-cell">
@@ -981,27 +985,11 @@
                             <button class="btn-action btn-del" onclick="deleteMed('${m.id}')"><i class="fas fa-trash"></i></button>
                         </div>
                     </div>`;
-
                 mainHtml += rowHtml;
 
-                if(m.expiryDate && m.expiryDate <= todayStr) {
-                    expiredCount++;
-                    expiredHtml += `
-                    <div class="med-row">
-                        <img src="${m.imgUrl || 'https://via.placeholder.com/50'}">
-                        <div class="med-info"><h4>${m.name}</h4><span>${m.barcode}</span></div>
-                        <div>${m.price}</div><div>${m.stock}</div>
-                        <div style="color:red; font-weight:bold; font-size:12px;">${m.expiryDate}</div>
-                    </div>`;
-                }
-                if(m.stock > 0 && m.stock < 5) {
-                    lowCount++;
-                    lowHtml += rowHtml;
-                }
-                if(m.stock <= 0) {
-                    noCount++;
-                    noHtml += rowHtml;
-                }
+                if(m.expiryDate && m.expiryDate <= todayStr) { expiredCount++; expiredHtml += `<div class="med-row"><img src="${m.imgUrl || 'https://via.placeholder.com/50'}"><div class="med-info"><h4>${m.name}</h4><span>${m.barcode}</span></div><div>${m.price}</div><div>${m.stock}</div><div style="color:red; font-weight:bold; font-size:12px;">${m.expiryDate}</div></div>`; }
+                if(m.stock > 0 && m.stock < 5) { lowCount++; lowHtml += rowHtml; }
+                if(m.stock <= 0) { noCount++; noHtml += rowHtml; }
             });
 
             document.getElementById('med-list-render').innerHTML = mainHtml;
@@ -1015,207 +1003,56 @@
             document.getElementById('no-count').innerText = noCount + " items";
         });
 
+        // --- ADD/EDIT PRODUCT LOGIC ---
         window.saveMedicine = async () => {
             const id = document.getElementById('edit-id').value;
             const data = {
-                barcode: document.getElementById('m-barcode').value,
-                name: document.getElementById('m-name').value,
-                price: parseFloat(document.getElementById('m-price').value) || 0,
-                rate: parseFloat(document.getElementById('m-rate').value) || 0,
-                stock: parseInt(document.getElementById('m-stock').value) || 0,
-                expiryDate: document.getElementById('m-expiry').value,
-                category: document.getElementById('m-cat').value,
-                imgUrl: document.getElementById('m-img').value
+                barcode: document.getElementById('m-barcode').value, name: document.getElementById('m-name').value, price: parseFloat(document.getElementById('m-price').value) || 0,
+                rate: parseFloat(document.getElementById('m-rate').value) || 0, stock: parseInt(document.getElementById('m-stock').value) || 0, expiryDate: document.getElementById('m-expiry').value,
+                category: document.getElementById('m-cat').value, imgUrl: document.getElementById('m-img').value
             };
             if(!data.name || !data.price) return alert("Fill Name and Price!");
-            
-            if(id) await updateDoc(doc(db, "medicines", id), data);
-            else await addDoc(collection(db, "medicines"), data);
-            
+            if(id) await updateDoc(doc(db, "medicines", id), data); else await addDoc(collection(db, "medicines"), data);
             showMsg("Saved Successfully!");
         };
 
         window.viewMedicine = (id) => {
             const m = medicines.find(item => item.id === id);
-            let h = `
-                <div style="text-align:center;"><img src="${m.imgUrl || 'https://via.placeholder.com/50'}" style="width:100px; height:100px; border-radius:10px; object-fit:cover;"></div>
+            let h = `<div style="text-align:center;"><img src="${m.imgUrl || 'https://via.placeholder.com/50'}" style="width:100px; height:100px; border-radius:10px; object-fit:cover;"></div>
                 <h3 style="color:var(--primary-color); text-align:center; margin:10px 0;">${m.name}</h3>
-                <table class="report-table" style="width:100%;">
-                    <tr><td><b>MRP (Price)</b></td><td>${m.price}</td></tr>
-                    <tr><td><b>Sale Rate</b></td><td>${m.rate || m.price}</td></tr>
-                    <tr><td><b>Stock</b></td><td>${m.stock}</td></tr>
-                    <tr><td><b>Barcode</b></td><td>${m.barcode || 'N/A'}</td></tr>
-                    <tr><td><b>Category</b></td><td>${m.category || 'N/A'}</td></tr>
-                    <tr><td><b>Expiry</b></td><td style="color:red;">${m.expiryDate || 'N/A'}</td></tr>
-                </table>`;
-            document.getElementById('modal-data-render').innerHTML = h;
-            document.getElementById('detailModal').style.display = 'flex';
+                <table class="report-table" style="width:100%;"><tr><td><b>MRP (Price)</b></td><td>${m.price}</td></tr><tr><td><b>Sale Rate</b></td><td>${m.rate || m.price}</td></tr><tr><td><b>Stock</b></td><td>${m.stock}</td></tr><tr><td><b>Barcode</b></td><td>${m.barcode || 'N/A'}</td></tr><tr><td><b>Category</b></td><td>${m.category || 'N/A'}</td></tr><tr><td><b>Expiry</b></td><td style="color:red;">${m.expiryDate || 'N/A'}</td></tr></table>`;
+            document.getElementById('modal-data-render').innerHTML = h; document.getElementById('detailModal').style.display = 'flex';
         };
 
         window.editMed = (id) => {
             const m = medicines.find(item => item.id === id);
-            document.getElementById('edit-id').value = m.id;
-            document.getElementById('m-barcode').value = m.barcode || "";
-            document.getElementById('m-name').value = m.name;
-            document.getElementById('m-price').value = m.price;
-            document.getElementById('m-rate').value = m.rate || "";
-            document.getElementById('m-stock').value = m.stock;
-            document.getElementById('m-expiry').value = m.expiryDate || "";
-            document.getElementById('m-cat').value = m.category || "";
-            document.getElementById('m-img').value = m.imgUrl || "";
-            document.getElementById('form-title').innerText = "Edit Product";
-            goToPage('page-add-med');
+            document.getElementById('edit-id').value = m.id; document.getElementById('m-barcode').value = m.barcode || ""; document.getElementById('m-name').value = m.name;
+            document.getElementById('m-price').value = m.price; document.getElementById('m-rate').value = m.rate || ""; document.getElementById('m-stock').value = m.stock;
+            document.getElementById('m-expiry').value = m.expiryDate || ""; document.getElementById('m-cat').value = m.category || ""; document.getElementById('m-img').value = m.imgUrl || "";
+            document.getElementById('form-title').innerText = "Edit Product"; goToPage('page-add-med');
         };
 
         window.deleteMed = async (id) => { if(confirm("Are you sure?")) await deleteDoc(doc(db, "medicines", id)); };
 
-        // --- NEW SALE PROCESS ---
-        window.openCustomerForm = () => {
-            if(cart.length === 0) return alert("Cart is empty!");
-            document.getElementById('customerModal').style.display = 'flex';
-        };
-
-        // --- সেল ফাইনাল করার ফাংশন ---
-        window.finalizeSaleAndInvoice = async () => {
-            if (cart.length === 0) {
-                alert("Cart is empty!");
-                return;
-            }
-
-            // কাস্টমার তথ্য সংগ্রহ
-            const custName = document.getElementById('cust-name').value || "Walk-in Customer";
-            const custPhone = document.getElementById('cust-phone').value || "N/A";
-            const sub = parseFloat(document.getElementById('subtotal').innerText) || 0;
-            const discPercent = parseFloat(document.getElementById('discount').value) || 0;
-            const grand = parseFloat(document.getElementById('grand-total').innerText) || 0;
-            const today = new Date().toISOString().split('T')[0];
-            const invNo = Math.floor(100000 + Math.random() * 900000); // ৬ ডিজিটের বিল নম্বর
-
-            // বিল অবজেক্ট তৈরি
-            const saleObj = {
-                customerName: custName,
-                customerPhone: custPhone,
-                items: [...cart], // কার্টের কপি রাখা
-                subtotal: sub,
-                discount: discPercent,
-                total: grand,
-                payment: document.getElementById('pay-mode').value,
-                date: today,
-                invNo: invNo
-            };
-
-            // ১. সবার আগে বিলটি রেন্ডার করুন এবং পেজ পরিবর্তন করুন
-            renderInvoice(saleObj);
-            document.getElementById('customerModal').style.display = 'none';
-            goToPage('page-invoice'); // সরাসরি বিল পেজে চলে যাবে
-
-            // ২. ব্যাকগ্রাউন্ডে ডাটাবেসে সেভ করার চেষ্টা (যাতে এরর আসলেও বিল আটকে না থাকে)
-            try {
-                // ফায়ারবেসে সেল রেকর্ড যোগ করা
-                await addDoc(collection(db, "sales"), {
-                    ...saleObj,
-                    timestamp: serverTimestamp()
-                });
-
-                // ইনভেন্টরি থেকে স্টক কমানো
-                for (let item of cart) {
-                    const mRef = doc(db, "medicines", item.id);
-                    await updateDoc(mRef, {
-                        stock: (item.stock - item.qty)
-                    });
-                }
-                
-                // সব কাজ সফল হলে কার্ট খালি করা
-                cart = [];
-                renderCart();
-            } catch (dbError) {
-                console.error("Database Error:", dbError);
-                // এখানে ডাটাবেসে সেভ না হলেও ইউজার বিল দেখতে পাবে।
-            }
-        };
-
-        // --- বিল পেজে ডেটা দেখানোর ফাংশন ---
-        function renderInvoice(sale) {
-            document.getElementById('inv-no-display').innerText = sale.invNo;
-            document.getElementById('inv-date-display').innerText = sale.date;
-            document.getElementById('inv-cust-name').innerText = sale.customerName;
-            document.getElementById('inv-cust-phone').innerText = sale.customerPhone;
-            
-            document.getElementById('inv-sub-display').innerText = sale.subtotal.toFixed(2);
-            document.getElementById('inv-total-display').innerText = sale.total.toFixed(2);
-            document.getElementById('inv-disc-percent').innerText = sale.discount;
-
-            let html = "";
-            sale.items.forEach((item) => {
-                html += `<tr>
-                    <td>${item.name}</td>
-                    <td class="text-center">${item.qty}</td>
-                    <td class="text-right">${(item.qty * item.price).toFixed(2)}</td>
-                </tr>`;
-            });
-            document.getElementById('inv-items-render').innerHTML = html;
-        }
-        // --- রিপোর্ট লোড করার ফাংশন (তারিখ অনুযায়ী) ---
+        // --- REPORT LOGIC ---
         window.loadReport = async () => {
             const selDate = document.getElementById('report-date').value;
-            if(!selDate) {
-                alert("Please select a date first!");
-                return;
-            }
-            
-            // ফায়ারবেস থেকে ওই তারিখের সেল ডাটা আনা
+            if(!selDate) return alert("Select a date!");
             const snap = await getDocs(query(collection(db, "sales"), where("date", "==", selDate)));
-            salesList = []; 
-            let totalAmt = 0; 
-            let html = ""; 
-            let sl = 1;
-
+            salesList =[]; let totalAmt = 0; let html = ""; let sl = 1;
             snap.forEach(doc => {
-                const s = doc.data(); 
-                s.docId = doc.id;
-                salesList.push(s); 
-                totalAmt += s.total;
-                
-                html += `<tr>
-                    <td>${sl++}</td>
-                    <td>${s.customerName}</td>
-                    <td><b>₹${s.total.toFixed(2)}</b></td>
-                    <td><button onclick="viewSaleDetails('${s.docId}')" style="background:var(--info); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">View Bill</button></td>
-                </tr>`;
+                const s = doc.data(); s.docId = doc.id; salesList.push(s); totalAmt += s.total;
+                html += `<tr><td>${sl++}</td><td>${s.customerName}</td><td><b>₹${s.total.toFixed(2)}</b></td><td class="action-btns-cell"><button onclick="viewSaleDetails('${s.docId}')" style="background:var(--info); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">View</button></td></tr>`;
             });
-
             document.getElementById('report-total-amt').innerText = "Total Sale: ₹" + totalAmt.toFixed(2);
-            document.getElementById('report-list').innerHTML = html || "<tr><td colspan='4' style='text-align:center;'>No sales found for this date.</td></tr>";
+            document.getElementById('report-list').innerHTML = html || "<tr><td colspan='4' style='text-align:center;'>No sales found.</td></tr>";
         };
 
-        // --- পুরনো বিল দেখার ফাংশন ---
-        window.viewSaleDetails = (id) => {
-            const sale = salesList.find(s => s.docId === id);
-            if(sale) {
-                renderInvoice(sale);
-                goToPage('page-invoice');
-            }
-        };
-
-        // --- মোডাল এবং কার্ট ক্লিয়ারেন্স ফাংশন ---
-        window.closeDetailModal = () => {
-            document.getElementById('detailModal').style.display = 'none';
-        };
-
-        window.cancelSelection = () => { 
-            document.getElementById('qty-box').style.display = "none"; 
-            document.getElementById('sell-search').value = ""; 
-            tempSelectedMed = null; 
-        };
-
-        window.removeFromCart = (index) => { 
-            cart.splice(index, 1); 
-            renderCart(); 
-        };
-
-        window.resetCart = () => { 
-            if(confirm("Are you sure you want to clear the cart?")) { 
-                cart = []; 
+        window.viewSaleDetails = (id) => { const sale = salesList.find(s => s.docId === id); if(sale) { renderInvoice(sale); goToPage('page-invoice'); } };
+        window.closeDetailModal = () => document.getElementById('detailModal').style.display = 'none';
+        window.cancelSelection = () => { document.getElementById('qty-box').style.display = "none"; document.getElementById('sell-search').value = ""; tempSelectedMed = null; };
+        window.removeFromCart = (index) => { cart.splice(index, 1); renderCart(); };
+        window.resetCart = () => { if(confirm("Clear cart?")) { cart = []; 
                 renderCart(); 
             } 
         };
@@ -1229,18 +1066,19 @@
             document.getElementById('grand-total').innerText = finalTotal.toFixed(2);
         };
 
-        // --- মেসেজ বক্স এবং নোটিফিকেশন ---
+        // --- সেভ করার পর সাকসেস মেসেজ দেখানো ---
         function showMsg(txt) { 
             document.getElementById('msgText').innerText = txt; 
             document.getElementById('msgBox').style.display = 'block'; 
         }
 
+        // --- মেসেজ বক্স বন্ধ করা এবং পেজ রিফ্রেশ করা ---
         window.closeMsg = () => { 
             document.getElementById('msgBox').style.display = 'none'; 
-            location.reload(); // পেজ রিফ্রেশ করে নতুন ডাটা দেখাবে
+            location.reload(); 
         };
 
-        // --- ইনভেন্টরি সার্চ ফিল্টার ---
+        // --- ইনভেন্টরি পেজে নাম লিখে সার্চ/ফিল্টার করা ---
         window.filterMeds = () => {
             const term = document.getElementById('search-med').value.toLowerCase();
             document.querySelectorAll('.med-row').forEach(row => {
@@ -1251,4 +1089,4 @@
 
     </script>
 </body>
-            </html>
+                                                                                                          </html>
