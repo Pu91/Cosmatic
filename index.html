@@ -11,7 +11,7 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <!-- Excel Export Library (SheetJS) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Barcode Generator Library (New) -->
+    <!-- Barcode Generator Library -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     
     <style>
@@ -218,34 +218,37 @@
         .inv-qr img { width: 120px; height: 120px; }
         .inv-footer { text-align: center; font-size: 11px; margin-top: 10px; line-height: 1.4; }
 
-        @media print {
-            body * { visibility: hidden; }
-            #page-invoice { display: block; }
-            .invoice-wrapper, .invoice-wrapper * { visibility: visible; }
-            .invoice-wrapper { position: absolute; top: 0; left: 0; width: 100%; max-width: none; box-shadow: none; padding: 5px; margin: 0; border-radius: 0; }
-            .no-print { display: none !important; }
-        }
-
-        /* Print Layout Styles (Invisible on Screen) */
+        /* --- SEPARATED PRINT STYLES FOR INVOICE & BARCODE --- */
         #print-area { display: none; }
         @media print {
-            #print-area { 
+            body * { visibility: hidden; }
+            
+            /* --- INVOICE PRINT MODE (Default) --- */
+            body:not(.barcode-mode) #page-invoice { display: block; }
+            body:not(.barcode-mode) .invoice-wrapper, body:not(.barcode-mode) .invoice-wrapper * { visibility: visible; }
+            body:not(.barcode-mode) .invoice-wrapper { position: absolute; top: 0; left: 0; width: 100%; max-width: none; box-shadow: none; padding: 5px; margin: 0; border-radius: 0; }
+            
+            /* --- BARCODE PRINT MODE --- */
+            body.barcode-mode #print-area, body.barcode-mode #print-area * { visibility: visible; }
+            body.barcode-mode #print-area { 
                 display: grid !important; 
                 grid-template-columns: repeat(4, 1fr); 
                 gap: 10px; 
                 position: absolute; left: 0; top: 0; width: 100%; 
                 padding: 10mm;
             }
-            .print-barcode-item { 
+            body.barcode-mode .print-barcode-item { 
                 text-align: center; border: 1px solid #eee; padding: 5px; 
             }
+            
+            .no-print { display: none !important; }
         }
     </style>
 </head>
 <body>
 
     <!-- Sound Effects -->
-    <audio id="sound-success" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"></audio>
+    <audio id="sound-success" src="/store calculation app/record_2026-03-27_15-11-56.mp3"></audio>
     <audio id="sound-error" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"></audio>
 
     <div id="msgBox" class="message-box">
@@ -253,7 +256,7 @@
         <button onclick="closeMsg()" style="background:white; border:none; padding:10px 20px; border-radius:5px; color:var(--primary-color); font-weight:bold; cursor:pointer;">OK</button>
     </div>
 
-    <!-- Hidden Print Container -->
+    <!-- Hidden Print Container For Barcode -->
     <div id="print-area"></div>
 
     <!-- Modal for Views -->
@@ -274,8 +277,8 @@
                 <select id="cust-gender"><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select>
             </div>
             <input type="number" id="cust-phone" placeholder="Mobile Number (Optional)">
-            <input type="email" id="cust-email" placeholder="Email (Optional)">
-            <input type="text" id="cust-dr" placeholder="Doctor Name (Optional)">
+           
+            
             <button class="btn-main" onclick="finalizeSaleAndInvoice()">SELL & PRINT BILL</button>
             <button onclick="document.getElementById('customerModal').style.display='none'" style="width:100%; margin-top:10px; background:#ccc; border:none; padding:10px; border-radius:8px; cursor:pointer;">Cancel</button>
         </div>
@@ -314,11 +317,17 @@
                     <h3>Sell Page</h3>
                     <p>New Bill</p>
                 </div>
-                <!-- New Barcode Card -->
+                <!-- Barcode Card -->
                 <div class="menu-card" onclick="goToPage('page-barcode-gen')">
                     <i class="fas fa-barcode"></i>
                     <h3>Generate Barcode</h3>
                     <p>Print Tags</p>
+                </div>
+                <!-- === Website Card Added Here === -->
+                <div class="menu-card" onclick="window.open('zesty-brioche-6ec6cb.netlify.app', '_blank')">
+                    <i class="fas fa-globe" style="color: #3498db;"></i>
+                    <h3>Visit Website</h3>
+                    <p>Open Link</p>
                 </div>
             </div>
 
@@ -667,7 +676,7 @@
             }
         };
 
-        // --- BARCODE PRINT LOGIC ---
+        // --- BARCODE PRINT LOGIC (FIXED) ---
         window.prepareBarcodePrint = () => {
             const text = document.getElementById('gen-barcode-text').value;
             const qty = parseInt(document.getElementById('gen-barcode-qty').value);
@@ -692,8 +701,11 @@
                 });
             }
 
+            // Add class for barcode print layout, remove after print dialog closes
             setTimeout(() => {
+                document.body.classList.add("barcode-mode");
                 window.print();
+                setTimeout(() => { document.body.classList.remove("barcode-mode"); }, 1000);
             }, 500);
         };
 
@@ -1063,61 +1075,66 @@
             document.getElementById('customerModal').style.display = 'flex';
         };
 
+        // --- সেল ফাইনাল করার ফাংশন ---
         window.finalizeSaleAndInvoice = async () => {
-            // Customer details are now optional. If empty, default values will apply
-            const custName = document.getElementById('cust-name').value || "Walk-in";
-            const custAge = document.getElementById('cust-age').value || "N/A";
-            const custGen = document.getElementById('cust-gender').value || "N/A";
+            if (cart.length === 0) {
+                alert("Cart is empty!");
+                return;
+            }
+
+            // কাস্টমার তথ্য সংগ্রহ
+            const custName = document.getElementById('cust-name').value || "Walk-in Customer";
             const custPhone = document.getElementById('cust-phone').value || "N/A";
-            const custEmail = document.getElementById('cust-email').value || "N/A";
-            const custDr = document.getElementById('cust-dr').value || "Self";
-
-            playSuccess();
-            const sub = parseFloat(document.getElementById('subtotal').innerText);
+            const sub = parseFloat(document.getElementById('subtotal').innerText) || 0;
             const discPercent = parseFloat(document.getElementById('discount').value) || 0;
-            const grand = parseFloat(document.getElementById('grand-total').innerText);
-            
-            // Get exact date of sale
+            const grand = parseFloat(document.getElementById('grand-total').innerText) || 0;
             const today = new Date().toISOString().split('T')[0];
-            const invNo = Math.floor(10000000 + Math.random() * 90000000);
+            const invNo = Math.floor(100000 + Math.random() * 900000); // ৬ ডিজিটের বিল নম্বর
 
+            // বিল অবজেক্ট তৈরি
             const saleObj = {
                 customerName: custName,
-                customerAge: custAge,
-                customerGender: custGen,
                 customerPhone: custPhone,
-                customerEmail: custEmail,
-                drName: custDr,
-                items: cart.map(i => ({ 
-                    name: i.name, 
-                    qty: i.qty, 
-                    price: i.price, 
-                    expiry: i.expiryDate || 'N/A'
-                })),
+                items: [...cart], // কার্টের কপি রাখা
                 subtotal: sub,
                 discount: discPercent,
                 total: grand,
                 payment: document.getElementById('pay-mode').value,
                 date: today,
-                invNo: invNo,
-                timestamp: serverTimestamp()
+                invNo: invNo
             };
 
-            await addDoc(collection(db, "sales"), saleObj);
-
-            // Update Stock
-            for(let item of cart) {
-                const mRef = doc(db, "medicines", item.id);
-                await updateDoc(mRef, { stock: item.stock - item.qty });
-            }
-
+            // ১. সবার আগে বিলটি রেন্ডার করুন এবং পেজ পরিবর্তন করুন
             renderInvoice(saleObj);
             document.getElementById('customerModal').style.display = 'none';
-            cart =[];
-            renderCart();
-            goToPage('page-invoice');
+            goToPage('page-invoice'); // সরাসরি বিল পেজে চলে যাবে
+
+            // ২. ব্যাকগ্রাউন্ডে ডাটাবেসে সেভ করার চেষ্টা (যাতে এরর আসলেও বিল আটকে না থাকে)
+            try {
+                // ফায়ারবেসে সেল রেকর্ড যোগ করা
+                await addDoc(collection(db, "sales"), {
+                    ...saleObj,
+                    timestamp: serverTimestamp()
+                });
+
+                // ইনভেন্টরি থেকে স্টক কমানো
+                for (let item of cart) {
+                    const mRef = doc(db, "medicines", item.id);
+                    await updateDoc(mRef, {
+                        stock: (item.stock - item.qty)
+                    });
+                }
+                
+                // সব কাজ সফল হলে কার্ট খালি করা
+                cart = [];
+                renderCart();
+            } catch (dbError) {
+                console.error("Database Error:", dbError);
+                // এখানে ডাটাবেসে সেভ না হলেও ইউজার বিল দেখতে পাবে।
+            }
         };
 
+        // --- বিল পেজে ডেটা দেখানোর ফাংশন ---
         function renderInvoice(sale) {
             document.getElementById('inv-no-display').innerText = sale.invNo;
             document.getElementById('inv-date-display').innerText = sale.date;
@@ -1138,39 +1155,81 @@
             });
             document.getElementById('inv-items-render').innerHTML = html;
         }
-
+        // --- রিপোর্ট লোড করার ফাংশন (তারিখ অনুযায়ী) ---
         window.loadReport = async () => {
             const selDate = document.getElementById('report-date').value;
-            if(!selDate) return;
+            if(!selDate) {
+                alert("Please select a date first!");
+                return;
+            }
+            
+            // ফায়ারবেস থেকে ওই তারিখের সেল ডাটা আনা
             const snap = await getDocs(query(collection(db, "sales"), where("date", "==", selDate)));
-            salesList =[]; let totalAmt = 0; let html = ""; let sl = 1;
+            salesList = []; 
+            let totalAmt = 0; 
+            let html = ""; 
+            let sl = 1;
+
             snap.forEach(doc => {
-                const s = doc.data(); s.docId = doc.id;
-                salesList.push(s); totalAmt += s.total;
-                html += `<tr><td>${sl++}</td><td>${s.customerName}</td><td><b>${s.total}</b></td><td><button onclick="viewSaleDetails('${s.docId}')" style="background:var(--info); color:white; border:none; padding:5px 10px; border-radius:5px;">View Bill</button></td></tr>`;
+                const s = doc.data(); 
+                s.docId = doc.id;
+                salesList.push(s); 
+                totalAmt += s.total;
+                
+                html += `<tr>
+                    <td>${sl++}</td>
+                    <td>${s.customerName}</td>
+                    <td><b>₹${s.total.toFixed(2)}</b></td>
+                    <td><button onclick="viewSaleDetails('${s.docId}')" style="background:var(--info); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">View Bill</button></td>
+                </tr>`;
             });
-            document.getElementById('report-total-amt').innerText = "Total Sale: " + totalAmt;
-            document.getElementById('report-list').innerHTML = html || "<tr><td colspan='4' style='text-align:center;'>No Data</td></tr>";
+
+            document.getElementById('report-total-amt').innerText = "Total Sale: ₹" + totalAmt.toFixed(2);
+            document.getElementById('report-list').innerHTML = html || "<tr><td colspan='4' style='text-align:center;'>No sales found for this date.</td></tr>";
         };
 
+        // --- পুরনো বিল দেখার ফাংশন ---
         window.viewSaleDetails = (id) => {
             const sale = salesList.find(s => s.docId === id);
-            renderInvoice(sale);
-            goToPage('page-invoice');
+            if(sale) {
+                renderInvoice(sale);
+                goToPage('page-invoice');
+            }
         };
 
-        window.closeDetailModal = () => document.getElementById('detailModal').style.display = 'none';
-        window.cancelSelection = () => { document.getElementById('qty-box').style.display = "none"; document.getElementById('sell-search').value = ""; tempSelectedMed = null; };
-        window.removeFromCart = (index) => { cart.splice(index, 1); renderCart(); };
-        window.resetCart = () => { if(confirm("Clear cart?")) { cart = []; renderCart(); } };
+        // --- মোডাল এবং কার্ট ক্লিয়ারেন্স ফাংশন ---
+        window.closeDetailModal = () => {
+            document.getElementById('detailModal').style.display = 'none';
+        };
+
+        window.cancelSelection = () => { 
+            document.getElementById('qty-box').style.display = "none"; 
+            document.getElementById('sell-search').value = ""; 
+            tempSelectedMed = null; 
+        };
+
+        window.removeFromCart = (index) => { 
+            cart.splice(index, 1); 
+            renderCart(); 
+        };
+
+        window.resetCart = () => { 
+            if(confirm("Are you sure you want to clear the cart?")) { 
+                cart = []; 
+                renderCart(); 
+            } 
+        };
         
+        // --- ডিসকাউন্ট এবং টোটাল হিসাব করার ফাংশন ---
         window.calculateTotal = () => {
-            const sub = parseFloat(document.getElementById('subtotal').innerText);
+            const sub = parseFloat(document.getElementById('subtotal').innerText) || 0;
             const discPercent = parseFloat(document.getElementById('discount').value) || 0;
             const discAmt = (sub * discPercent) / 100;
-            document.getElementById('grand-total').innerText = (sub - discAmt).toFixed(2);
+            const finalTotal = sub - discAmt;
+            document.getElementById('grand-total').innerText = finalTotal.toFixed(2);
         };
 
+        // --- মেসেজ বক্স এবং নোটিফিকেশন ---
         function showMsg(txt) { 
             document.getElementById('msgText').innerText = txt; 
             document.getElementById('msgBox').style.display = 'block'; 
@@ -1178,15 +1237,18 @@
 
         window.closeMsg = () => { 
             document.getElementById('msgBox').style.display = 'none'; 
-            location.reload(); 
+            location.reload(); // পেজ রিফ্রেশ করে নতুন ডাটা দেখাবে
         };
 
+        // --- ইনভেন্টরি সার্চ ফিল্টার ---
         window.filterMeds = () => {
             const term = document.getElementById('search-med').value.toLowerCase();
             document.querySelectorAll('.med-row').forEach(row => {
-                row.style.display = row.innerText.toLowerCase().includes(term) ? "grid" : "none";
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(term) ? "grid" : "none";
             });
         };
+
     </script>
 </body>
-                    </html>
+            </html>
