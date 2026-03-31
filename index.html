@@ -237,8 +237,13 @@
            ADVANCED PRINTING LOGIC (ISOLATING INVOICE, BARCODE, TABLE)
            ========================================================= */
         @media print {
+            @page { margin: 0; } /* Remove default header/footer margins */
             body { background: white !important; margin: 0; padding: 0; color: #000; }
             header, footer, .no-print, button, input, select { display: none !important; }
+            
+            /* IMPORTANT: Hide all inactive pages to prevent extra blank pages */
+            .section-page:not(.active-page) { display: none !important; }
+            
             body * { visibility: hidden; }
 
             /* 1. PRINT INVOICE MODE */
@@ -246,7 +251,10 @@
             body.print-invoice #page-invoice *,
             body.print-invoice .invoice-wrapper,
             body.print-invoice .invoice-wrapper * { visibility: visible; }
-            body.print-invoice .invoice-wrapper { position: absolute; left: 0; top: 0; width: 100%; max-width: none; box-shadow: none; margin: 0; }
+            body.print-invoice .invoice-wrapper { 
+                position: absolute; left: 0; top: 0; width: 100%; max-width: none; 
+                box-shadow: none; margin: 0; padding: 5px; border: none; 
+            }
             
             /* 2. PRINT BARCODE MODE */
             body.print-barcode #barcode-preview-area,
@@ -915,6 +923,9 @@
             document.getElementById('customerModal').style.display = 'none';
             goToPage('page-invoice'); 
 
+            // এই কোডটির সাহায্যে "SELL & PRINT BILL" এ ক্লিক করলে নিজে থেকেই বিল প্রিন্টের পপ-আপ আসবে।
+            setTimeout(() => { triggerPrint('print-invoice'); }, 500);
+
             try {
                 await addDoc(collection(db, "sales"), { ...saleObj, timestamp: serverTimestamp() });
                 for (let item of cart) {
@@ -1089,4 +1100,4 @@
 
     </script>
 </body>
-                                                                                                          </html>
+        </html>
