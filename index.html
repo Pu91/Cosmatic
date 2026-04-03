@@ -579,7 +579,7 @@
         <section id="page-invoice" class="section-page">
             <div class="no-print" style="margin-bottom:15px; display:flex; gap:10px; justify-content:center;">
                 <button onclick="goToPage('page-sell')" style="background:#444; color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-arrow-left"></i> Back</button>
-                <!-- NEW: Thermal Web2Apk RawBT Print Trigger Here -->
+                <!-- NEW: Thermal Bluetooth Print Trigger Here -->
                 <button onclick="printThermalReceipt()" style="background:var(--primary-color); color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-print"></i> Print Receipt</button>
             </div>
 
@@ -763,7 +763,7 @@
             setTimeout(() => { document.body.classList.remove(modeClass); }, 500);
         };
 
-        // --- NEW: RAWBT PRINTING LOGIC FOR WEB2APK PRO ---
+        // --- FIXED: RAWBT PRINTING LOGIC FOR WEB2APK PRO ---
         window.printThermalReceipt = () => {
             try {
                 const invNo = document.getElementById('inv-no-display').innerText;
@@ -775,14 +775,15 @@
                 const discAmt = document.getElementById('inv-disc-amt').innerText;
                 const total = document.getElementById('inv-total-display').innerText;
 
-                // RawBT Formatting Tags: [C] Center, [L] Left, [R] Right, <b> Bold
+                // RawBT Formatting Tags
+                // Note: Removing # symbol from receipt string to prevent intent truncation
                 let receipt = "[C]<b>COSMO STORE</b>\n";
                 receipt += "[C]City, PIN 123456, India\n";
-                receipt += "[C]Mob: +91 0000000000\n";
+                receipt += "[C]Mob: 91 0000000000\n";
                 receipt += "--------------------------------\n"; 
                 
                 receipt += "[L]Date: " + date + "\n";
-                receipt += "[L]Bill No: #" + invNo + "\n";
+                receipt += "[L]Bill No: " + invNo + "\n";
                 if(custName !== "---" && custName !== "Walk-in") receipt += "[L]Cust: " + custName + "\n";
                 if(custPhone !== "---" && custPhone !== "N/A") receipt += "[L]Phone: " + custPhone + "\n";
                 receipt += "--------------------------------\n";
@@ -813,15 +814,10 @@
                 receipt += "[C]Goods once sold cannot be returned\n";
                 receipt += "\n\n\n"; 
 
-                // Encode for RawBT Intent
-                let rawbtIntent = "intent:" + encodeURI(receipt) + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+                // Use encodeURIComponent to handle all special characters correctly for intent
+                let rawbtIntent = "intent:" + encodeURIComponent(receipt) + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
                 
-                // WebView Safe Execution (Hidden Anchor Tag Click Method)
-                let a = document.createElement('a');
-                a.href = rawbtIntent;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                window.location.href = rawbtIntent;
 
             } catch (error) {
                 alert("দয়া করে Play Store থেকে 'RawBT Print Service' অ্যাপটি ইনস্টল করুন।");
@@ -1323,4 +1319,4 @@
 
     </script>
 </body>
-                                   </html>
+                                     </html>
