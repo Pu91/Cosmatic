@@ -610,7 +610,6 @@
                 <div class="inv-sep"></div>
                 <div class="inv-totals">
                     Sub Total: Rs.<span id="inv-sub-display">0.00</span><br>
-                    <!-- INVOICE UPDATED TO SHOW FLAT DISCOUNT AS WELL -->
                     Discount: <span id="inv-disc-percent">0</span>% | Rs.<span id="inv-disc-amt">0.00</span><br>
                     <div class="inv-sep" style="margin: 5px 0 5px auto; width: 60%;"></div>
                     <b style="font-size: 15px;">TOTAL: Rs.<span id="inv-total-display">0.00</span></b>
@@ -763,9 +762,15 @@
             setTimeout(() => { document.body.classList.remove(modeClass); }, 500);
         };
 
-        // --- FIXED: RAWBT PRINTING LOGIC FOR WEB2APK PRO ---
-        window.printThermalReceipt = () => {
+        // --- NEW: BLUETOOTH THERMAL PRINTING LOGIC ---
+        window.printThermalReceipt = async () => {
             try {
+                if (!navigator.bluetooth) {
+                    alert("Web Bluetooth API is not supported in this browser. Please use Chrome on Android/PC.");
+                    return;
+                }
+
+                // Gather data from the page
                 const invNo = document.getElementById('inv-no-display').innerText;
                 const date = document.getElementById('inv-date-display').innerText;
                 const custName = document.getElementById('inv-cust-name').innerText;
@@ -775,21 +780,30 @@
                 const discAmt = document.getElementById('inv-disc-amt').innerText;
                 const total = document.getElementById('inv-total-display').innerText;
 
-                // RawBT Formatting Tags
-                // Note: Removing # symbol from receipt string to prevent intent truncation
-                let receipt = "[C]<b>COSMO STORE</b>\n";
-                receipt += "[C]City, PIN 123456, India\n";
-                receipt += "[C]Mob: 91 0000000000\n";
-                receipt += "--------------------------------\n"; 
+                let receiptText = "";
+                const ESC = "\x1B";
+                const LF = "\x0A";
+                const INIT = ESC + "@";
+                const ALIGN_CENTER = ESC + "a" + "\x01";
+                const ALIGN_LEFT = ESC + "a" + "\x00";
+                const BOLD_ON = ESC + "E" + "\x01";
+                const BOLD_OFF = ESC + "E" + "\x00";
+
+                receiptText += INIT;
+                receiptText += ALIGN_CENTER + BOLD_ON + "COSMO STORE" + LF;
+                receiptText += BOLD_OFF + "City, PIN 123456, India" + LF;
+                receiptText += "Mob: +91 0000000000" + LF;
+                receiptText += "--------------------------------" + LF; 
                 
-                receipt += "[L]Date: " + date + "\n";
-                receipt += "[L]Bill No: " + invNo + "\n";
-                if(custName !== "---" && custName !== "Walk-in") receipt += "[L]Cust: " + custName + "\n";
-                if(custPhone !== "---" && custPhone !== "N/A") receipt += "[L]Phone: " + custPhone + "\n";
-                receipt += "--------------------------------\n";
+                receiptText += ALIGN_LEFT;
+                receiptText += "Date: " + date + LF;
+                receiptText += "Bill No: #" + invNo + LF;
+                if(custName !== "---" && custName !== "Walk-in") receiptText += "Cust: " + custName + LF;
+                if(custPhone !== "---" && custPhone !== "N/A") receiptText += "Phone: " + custPhone + LF;
+                receiptText += "--------------------------------" + LF;
                 
-                receipt += "[L]<b>Item          Qty       Amt</b>\n";
-                receipt += "--------------------------------\n";
+                receiptText += "Item          Qty       Amt" + LF;
+                receiptText += "--------------------------------" + LF;
 
                 const rows = document.querySelectorAll('#inv-items-render tr');
                 rows.forEach(row => {
@@ -798,29 +812,66 @@
                         let name = cols[0].innerText.substring(0, 12).padEnd(12, " ");
                         let qty = cols[1].innerText.padEnd(6, " ");
                         let amt = cols[2].innerText.padStart(8, " ");
-                        receipt += "[L]" + name + "  " + qty + "  " + amt + "\n";
+                        receiptText += name + "  " + qty + "  " + amt + LF;
                     }
                 });
 
-                receipt += "--------------------------------\n";
-                receipt += "[R]Sub Total: Rs." + subtotal + "\n";
+                receiptText += "--------------------------------" + LF;
+                receiptText += ALIGN_LEFT + "Sub Total: Rs." + subtotal + LF;
                 if(parseFloat(discPercent)>0 || parseFloat(discAmt)>0) {
-                    receipt += "[R]Discount: " + discPercent + "% | Rs." + discAmt + "\n";
+                    receiptText += "Discount: " + discPercent + "% | Rs." + discAmt + LF;
                 }
-                receipt += "--------------------------------\n";
-                receipt += "[R]<b>TOTAL: Rs." + total + "</b>\n";
-                receipt += "--------------------------------\n";
-                receipt += "[C]THANK YOU ! VISIT AGAIN\n";
-                receipt += "[C]Goods once sold cannot be returned\n";
-                receipt += "\n\n\n"; 
+                receiptText += "--------------------------------" + LF;
+                receiptText += ALIGN_CENTER + BOLD_ON + "TOTAL: Rs." + total + LF + BOLD_OFF;
+                receiptText += "--------------------------------" + LF;
+                receiptText += "THANK YOU ! VISIT AGAIN" + LF;
+                receiptText += "Goods once sold cannot be returned" + LF;
+                receiptText += LF + LF + LF + LF; 
 
-                // Use encodeURIComponent to handle all special characters correctly for intent
-                let rawbtIntent = "intent:" + encodeURIComponent(receipt) + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+                const encoder = new TextEncoder();
+                const data = encoder.encode(receiptText);
+
+                // Request Bluetooth Device
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '0000180a-0000-1000-8000-00805f9b34fb', '49535343-fe7d-4ae5-8fa9-9fafd205e455'] 
+                });
+
+                const server = await device.gatt.connect();
+                const services = await server.getPrimaryServices();
+                let characteristic = null;
                 
-                window.location.href = rawbtIntent;
+                for (const service of services) {
+                    const characteristics = await service.getCharacteristics();
+                    for (const char of characteristics) {
+                        if (char.properties.write || char.properties.writeWithoutResponse) {
+                            characteristic = char;
+                            break;
+                        }
+                    }
+                    if (characteristic) break;
+                }
+
+                if (!characteristic) {
+                    throw new Error("Writable characteristic not found on this Bluetooth device.");
+                }
+
+                // Chunk data to 100 bytes to prevent Web Bluetooth limits
+                const CHUNK_SIZE = 100; 
+                for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+                    const chunk = data.slice(i, i + CHUNK_SIZE);
+                    await characteristic.writeValue(chunk);
+                }
+
+                setTimeout(() => {
+                    if (device.gatt.connected) {
+                        device.gatt.disconnect();
+                    }
+                }, 3000);
 
             } catch (error) {
-                alert("দয়া করে Play Store থেকে 'RawBT Print Service' অ্যাপটি ইনস্টল করুন।");
+                console.error(error);
+                alert("প্রিন্টার কানেক্ট নেই! / Printer Connect Ney! \n(Error: " + error.message + ")");
             }
         };
 
@@ -1098,6 +1149,9 @@
             document.getElementById('customerModal').style.display = 'none';
             goToPage('page-invoice'); 
 
+            // ব্রাউজার প্রিন্ট বন্ধ করে দেওয়া হলো, এখন ব্লুটুথ প্রিন্ট বাটনে ক্লিক করে প্রিন্ট হবে
+            // setTimeout(() => { triggerPrint('print-invoice'); }, 500);
+
             try {
                 await addDoc(collection(db, "sales"), { ...saleObj, timestamp: serverTimestamp() });
                 for (let item of cart) {
@@ -1319,4 +1373,4 @@
 
     </script>
 </body>
-                                     </html>
+                                    </html>
