@@ -45,7 +45,8 @@
         }
 
         .store-name { font-size: 20px; font-weight: bold; }
-        .profile-icon { font-size: 24px; cursor: pointer; }
+        .profile-icon { font-size: 24px; cursor: pointer; transition: 0.3s; }
+        .profile-icon:active { transform: scale(0.9); }
 
         main { padding: 20px; }
         .section-page { display: none; }
@@ -233,6 +234,16 @@
             text-align: center; border: 1px dashed #ccc; padding: 10px; background: white; border-radius: 5px;
         }
 
+        /* --- LOGIN PAGE STYLES --- */
+        #login-container {
+            display: flex; height: 100vh; justify-content: center; align-items: center;
+            background: var(--bg-color); z-index: 10000; position: fixed; top: 0; left: 0; width: 100%;
+        }
+        .login-box {
+            background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            width: 90%; max-width: 400px; text-align: center;
+        }
+
         /* =========================================================
            ADVANCED PRINTING LOGIC (ISOLATING INVOICE, BARCODE, TABLE)
            ========================================================= */
@@ -283,459 +294,478 @@
     <audio id="sound-success" src="blinkit audio.mp3"></audio>
     <audio id="sound-error" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"></audio>
 
-    <div id="msgBox" class="message-box">
-        <p id="msgText">Saved Successfully!</p>
-        <button onclick="closeMsg()" style="background:white; border:none; padding:10px 20px; border-radius:5px; color:var(--primary-color); font-weight:bold; cursor:pointer;">OK</button>
-    </div>
-
-    <!-- Modal for Views -->
-    <div id="detailModal">
-        <div class="modal-content">
-            <span class="close-modal" onclick="closeDetailModal()">&times;</span>
-            <div id="modal-data-render" style="overflow-x:auto;"></div>
+    <!-- LOGIN CONTAINER -->
+    <div id="login-container">
+        <div class="login-box">
+            <h2 style="color:var(--primary-color); margin-top:0;">💄 CosmoStore</h2>
+            <p style="color:#777; margin-bottom:20px; font-size:14px;">Admin Login Panel</p>
+            <input type="email" id="login-email" placeholder="Email Address" style="width:100%; padding:12px; margin-bottom:15px; border:1px solid #ddd; border-radius:8px;">
+            <input type="password" id="login-password" placeholder="Password" style="width:100%; padding:12px; margin-bottom:20px; border:1px solid #ddd; border-radius:8px;">
+            <button class="btn-main" onclick="loginUser()">LOGIN</button>
         </div>
     </div>
 
-    <!-- Customer Form Modal -->
-    <div id="customerModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:4000; justify-content:center; align-items:center;">
-        <div class="modal-content" style="max-width:400px;">
-            <h3 style="color:var(--primary-color); margin-top:0;">Customer Details (Optional)</h3>
-            <input type="text" id="cust-name" placeholder="Customer Name (Optional)">
-            <div style="display:flex; gap:10px;">
-                <input type="number" id="cust-age" placeholder="Age">
-                <select id="cust-gender"><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select>
-            </div>
-            <input type="number" id="cust-phone" placeholder="Mobile Number (Optional)">
-            <button class="btn-main" onclick="finalizeSaleAndInvoice()">SELL & PRINT BILL</button>
-            <button onclick="document.getElementById('customerModal').style.display='none'" style="width:100%; margin-top:10px; background:#ccc; border:none; padding:10px; border-radius:8px; cursor:pointer;">Cancel</button>
+    <!-- WRAP THE REST OF THE APP IN A CONTAINER HIDDEN BY DEFAULT -->
+    <div id="app-content" style="display: none;">
+
+        <div id="msgBox" class="message-box">
+            <p id="msgText">Saved Successfully!</p>
+            <button onclick="closeMsg()" style="background:white; border:none; padding:10px 20px; border-radius:5px; color:var(--primary-color); font-weight:bold; cursor:pointer;">OK</button>
         </div>
-    </div>
 
-    <header>
-        <div class="store-name">💄 CosmoStore</div>
-        <button class="btn-refresh" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
-        <div class="profile-icon"><i class="fas fa-user-circle"></i></div>
-    </header>
-
-    <main>
-        <!-- HOME DASHBOARD PAGE -->
-        <section id="page-home" class="section-page active-page">
-            <h2 style="margin-top:0; color: #555;">Dashboard</h2>
-            
-            <div class="dashboard-grid">
-                <div class="menu-card" onclick="goToPage('page-add-med')">
-                    <i class="fas fa-plus-circle"></i>
-                    <h3>Add Product</h3>
-                    <p>New Entry</p>
-                </div>
-                <div class="menu-card" onclick="goToPage('page-view-med')">
-                    <i class="fas fa-boxes-stacked"></i>
-                    <h3>View Stock</h3>
-                    <p id="total-med-count">Total: 0</p>
-                </div>
-                <!-- STOCK UPDATE CARD -->
-                <div class="menu-card" onclick="goToPage('page-update-stock')">
-                    <i class="fas fa-pen-to-square" style="color:var(--success)"></i>
-                    <h3 style="color:var(--success)">Update Stock</h3>
-                    <p>Edit & Add Stock</p>
-                </div>
-                <div class="menu-card" onclick="goToPage('page-sell')">
-                    <i class="fas fa-cart-shopping"></i>
-                    <h3>Sell Page</h3>
-                    <p>New Bill</p>
-                </div>
-                <!-- Barcode Gen Card -->
-                <div class="menu-card" onclick="goToPage('page-barcode-gen')">
-                    <i class="fas fa-barcode"></i>
-                    <h3>Generate Barcode</h3>
-                    <p>Print Tags</p>
-                </div>
-                <!-- Website Card -->
-                <div class="menu-card" onclick="window.open('https://zesty-brioche-6ec6cb.netlify.app', '_blank')">
-                    <i class="fas fa-globe" style="color: #3498db;"></i>
-                    <h3>Visit Website</h3>
-                    <p>Open Link</p>
-                </div>
-                <!-- NEW: ADD LOOSE PRODUCT CARD -->
-                <div class="menu-card" onclick="goToPage('page-add-loose')">
-                    <i class="fas fa-balance-scale" style="color: #e67e22;"></i>
-                    <h3 style="color: #e67e22;">Add Loose Product</h3>
-                    <p>Kg / Gram Items</p>
-                </div>
-                <!-- NEW: VIEW LOOSE STOCK CARD -->
-                <div class="menu-card" onclick="goToPage('page-view-loose')">
-                    <i class="fas fa-list" style="color: #8e44ad;"></i>
-                    <h3 style="color: #8e44ad;">View Loose Stock</h3>
-                    <p>Manage Loose Items</p>
-                </div>
+        <!-- Modal for Views -->
+        <div id="detailModal">
+            <div class="modal-content">
+                <span class="close-modal" onclick="closeDetailModal()">&times;</span>
+                <div id="modal-data-render" style="overflow-x:auto;"></div>
             </div>
+        </div>
 
-            <div class="dashboard-grid" style="margin-top:25px;">
-                <div class="menu-card card-expired" onclick="goToPage('page-expired')">
-                    <i class="fas fa-calendar-xmark" style="color:var(--danger)"></i>
-                    <h3>Expired</h3>
-                    <p id="expiry-count" style="color:var(--danger); font-weight:bold;">0 items</p>
+        <!-- Customer Form Modal -->
+        <div id="customerModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:4000; justify-content:center; align-items:center;">
+            <div class="modal-content" style="max-width:400px;">
+                <h3 style="color:var(--primary-color); margin-top:0;">Customer Details (Optional)</h3>
+                <input type="text" id="cust-name" placeholder="Customer Name (Optional)">
+                <div style="display:flex; gap:10px;">
+                    <input type="number" id="cust-age" placeholder="Age">
+                    <select id="cust-gender"><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select>
                 </div>
-                <div class="menu-card card-low" onclick="goToPage('page-lowstock')">
-                    <i class="fas fa-battery-quarter" style="color:var(--warning)"></i>
-                    <h3>Low Stock</h3>
-                    <p id="low-count" style="color:var(--warning); font-weight:bold;">0 items</p>
-                </div>
-                <div class="menu-card card-no" onclick="goToPage('page-nostock')">
-                    <i class="fas fa-circle-exclamation" style="color:#555"></i>
-                    <h3>No Stock</h3>
-                    <p id="no-count" style="color:#555; font-weight:bold;">0 items</p>
-                </div>
-                <div class="menu-card" onclick="goToPage('page-report')">
-                    <i class="fas fa-chart-line"></i>
-                    <h3>Reports</h3>
-                    <p>Sales Data</p>
-                </div>
+                <input type="number" id="cust-phone" placeholder="Mobile Number (Optional)">
+                <button class="btn-main" onclick="finalizeSaleAndInvoice()">SELL & PRINT BILL</button>
+                <button onclick="document.getElementById('customerModal').style.display='none'" style="width:100%; margin-top:10px; background:#ccc; border:none; padding:10px; border-radius:8px; cursor:pointer;">Cancel</button>
             </div>
-        </section>
+        </div>
 
-        <!-- NEW: ADD LOOSE PRODUCT PAGE -->
-        <section id="page-add-loose" class="section-page">
-            <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-            <h2 id="l-form-title">Add Loose Product</h2>
-            <div class="form-group">
-                <input type="hidden" id="edit-l-id">
-                <input type="text" id="l-name" placeholder="Product Name (e.g., Sugar, Dal)">
-                <input type="number" id="l-price" placeholder="Price (per 1000gm / 1 Kg)">
-                <input type="number" id="l-stock" placeholder="Stock Quantity (in Kg)" step="any">
-                <input type="text" id="l-cat" placeholder="Category (e.g., Grocery)">
-                <input type="text" id="l-img" placeholder="Image URL (Optional)">
-                <button class="btn-main" onclick="saveLooseProduct()" style="background:#e67e22;">SAVE LOOSE PRODUCT</button>
-            </div>
-        </section>
+        <header>
+            <div class="store-name">💄 CosmoStore</div>
+            <button class="btn-refresh" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+            <!-- PROFILE ICON TO LOGOUT -->
+            <div class="profile-icon" onclick="logoutUser()" title="Logout"><i class="fas fa-user-circle"></i></div>
+        </header>
 
-        <!-- NEW: VIEW LOOSE STOCK PAGE -->
-        <section id="page-view-loose" class="section-page">
-            <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-            <h2>View Loose Products</h2>
-            <div class="med-list-container">
-                <div class="med-header" style="background:#fcf3eb;">
-                    <div>Image</div><div>Name</div><div>Price/Kg</div><div>Stock(Kg)</div><div class="action-btns-cell">Actions</div>
+        <main>
+            <!-- HOME DASHBOARD PAGE -->
+            <section id="page-home" class="section-page active-page">
+                <h2 style="margin-top:0; color: #555;">Dashboard</h2>
+                
+                <div class="dashboard-grid">
+                    <div class="menu-card" onclick="goToPage('page-add-med')">
+                        <i class="fas fa-plus-circle"></i>
+                        <h3>Add Product</h3>
+                        <p>New Entry</p>
+                    </div>
+                    <div class="menu-card" onclick="goToPage('page-view-med')">
+                        <i class="fas fa-boxes-stacked"></i>
+                        <h3>View Stock</h3>
+                        <p id="total-med-count">Total: 0</p>
+                    </div>
+                    <!-- STOCK UPDATE CARD -->
+                    <div class="menu-card" onclick="goToPage('page-update-stock')">
+                        <i class="fas fa-pen-to-square" style="color:var(--success)"></i>
+                        <h3 style="color:var(--success)">Update Stock</h3>
+                        <p>Edit & Add Stock</p>
+                    </div>
+                    <div class="menu-card" onclick="goToPage('page-sell')">
+                        <i class="fas fa-cart-shopping"></i>
+                        <h3>Sell Page</h3>
+                        <p>New Bill</p>
+                    </div>
+                    <!-- Barcode Gen Card -->
+                    <div class="menu-card" onclick="goToPage('page-barcode-gen')">
+                        <i class="fas fa-barcode"></i>
+                        <h3>Generate Barcode</h3>
+                        <p>Print Tags</p>
+                    </div>
+                    <!-- Website Card -->
+                    <div class="menu-card" onclick="window.open('https://zesty-brioche-6ec6cb.netlify.app', '_blank')">
+                        <i class="fas fa-globe" style="color: #3498db;"></i>
+                        <h3>Visit Website</h3>
+                        <p>Open Link</p>
+                    </div>
+                    <!-- NEW: ADD LOOSE PRODUCT CARD -->
+                    <div class="menu-card" onclick="goToPage('page-add-loose')">
+                        <i class="fas fa-balance-scale" style="color: #e67e22;"></i>
+                        <h3 style="color: #e67e22;">Add Loose Product</h3>
+                        <p>Kg / Gram Items</p>
+                    </div>
+                    <!-- NEW: VIEW LOOSE STOCK CARD -->
+                    <div class="menu-card" onclick="goToPage('page-view-loose')">
+                        <i class="fas fa-list" style="color: #8e44ad;"></i>
+                        <h3 style="color: #8e44ad;">View Loose Stock</h3>
+                        <p>Manage Loose Items</p>
+                    </div>
                 </div>
-                <div id="loose-list-render"></div>
-            </div>
-        </section>
 
-        <!-- UPDATE STOCK PAGE -->
-        <section id="page-update-stock" class="section-page">
-            <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-            <h2>Update Stock</h2>
-            <div class="form-group">
-                <div id="reader-update"></div>
-                <button onclick="startScanner('stock-search-input', false, true)" style="background:#444; color:white; border:none; padding:12px; border-radius:8px; width:100%; margin-bottom:10px;"><i class="fas fa-camera"></i> SCAN BARCODE</button>
-                <div style="position:relative;">
-                    <input type="text" id="stock-search-input" placeholder="Search by name or barcode..." onkeyup="searchToUpdate()">
-                    <div id="update-popup" class="search-popup"></div>
+                <div class="dashboard-grid" style="margin-top:25px;">
+                    <div class="menu-card card-expired" onclick="goToPage('page-expired')">
+                        <i class="fas fa-calendar-xmark" style="color:var(--danger)"></i>
+                        <h3>Expired</h3>
+                        <p id="expiry-count" style="color:var(--danger); font-weight:bold;">0 items</p>
+                    </div>
+                    <div class="menu-card card-low" onclick="goToPage('page-lowstock')">
+                        <i class="fas fa-battery-quarter" style="color:var(--warning)"></i>
+                        <h3>Low Stock</h3>
+                        <p id="low-count" style="color:var(--warning); font-weight:bold;">0 items</p>
+                    </div>
+                    <div class="menu-card card-no" onclick="goToPage('page-nostock')">
+                        <i class="fas fa-circle-exclamation" style="color:#555"></i>
+                        <h3>No Stock</h3>
+                        <p id="no-count" style="color:#555; font-weight:bold;">0 items</p>
+                    </div>
+                    <div class="menu-card" onclick="goToPage('page-report')">
+                        <i class="fas fa-chart-line"></i>
+                        <h3>Reports</h3>
+                        <p>Sales Data</p>
+                    </div>
                 </div>
-            </div>
+            </section>
 
-            <div id="update-result-card" class="update-card">
-                <div style="display:flex; gap:15px; align-items:flex-start;">
-                    <img id="u-img" class="update-img" src="">
-                    <div style="flex:1;">
-                        <h3 id="u-name" style="margin:0; color:var(--primary-color);">Product Name</h3>
-                        <p id="u-barcode" style="margin:5px 0; font-size:12px; color:#777;">Barcode: ---</p>
-                        <div style="display:flex; gap:10px; margin-top:10px;">
-                            <button class="btn-action btn-view" id="u-view-btn"><i class="fas fa-eye"></i> View</button>
-                            <button class="btn-action btn-edit" id="u-edit-btn"><i class="fas fa-edit"></i> Edit</button>
+            <!-- NEW: ADD LOOSE PRODUCT PAGE -->
+            <section id="page-add-loose" class="section-page">
+                <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <h2 id="l-form-title">Add Loose Product</h2>
+                <div class="form-group">
+                    <input type="hidden" id="edit-l-id">
+                    <input type="text" id="l-name" placeholder="Product Name (e.g., Sugar, Dal)">
+                    <input type="number" id="l-price" placeholder="Price (per 1000gm / 1 Kg)">
+                    <input type="number" id="l-stock" placeholder="Stock Quantity (in Kg)" step="any">
+                    <input type="text" id="l-cat" placeholder="Category (e.g., Grocery)">
+                    <input type="text" id="l-img" placeholder="Image URL (Optional)">
+                    <button class="btn-main" onclick="saveLooseProduct()" style="background:#e67e22;">SAVE LOOSE PRODUCT</button>
+                </div>
+            </section>
+
+            <!-- NEW: VIEW LOOSE STOCK PAGE -->
+            <section id="page-view-loose" class="section-page">
+                <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <h2>View Loose Products</h2>
+                <div class="med-list-container">
+                    <div class="med-header" style="background:#fcf3eb;">
+                        <div>Image</div><div>Name</div><div>Price/Kg</div><div>Stock(Kg)</div><div class="action-btns-cell">Actions</div>
+                    </div>
+                    <div id="loose-list-render"></div>
+                </div>
+            </section>
+
+            <!-- UPDATE STOCK PAGE -->
+            <section id="page-update-stock" class="section-page">
+                <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <h2>Update Stock</h2>
+                <div class="form-group">
+                    <div id="reader-update"></div>
+                    <button onclick="startScanner('stock-search-input', false, true)" style="background:#444; color:white; border:none; padding:12px; border-radius:8px; width:100%; margin-bottom:10px;"><i class="fas fa-camera"></i> SCAN BARCODE</button>
+                    <div style="position:relative;">
+                        <input type="text" id="stock-search-input" placeholder="Search by name or barcode..." onkeyup="searchToUpdate()">
+                        <div id="update-popup" class="search-popup"></div>
+                    </div>
+                </div>
+
+                <div id="update-result-card" class="update-card">
+                    <div style="display:flex; gap:15px; align-items:flex-start;">
+                        <img id="u-img" class="update-img" src="">
+                        <div style="flex:1;">
+                            <h3 id="u-name" style="margin:0; color:var(--primary-color);">Product Name</h3>
+                            <p id="u-barcode" style="margin:5px 0; font-size:12px; color:#777;">Barcode: ---</p>
+                            <div style="display:flex; gap:10px; margin-top:10px;">
+                                <button class="btn-action btn-view" id="u-view-btn"><i class="fas fa-eye"></i> View</button>
+                                <button class="btn-action btn-edit" id="u-edit-btn"><i class="fas fa-edit"></i> Edit</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-                
-                <div class="stock-box-container">
-                    <div style="flex:1;">
-                        <span style="font-size:12px; color:#888;">Current Stock:</span>
-                        <div id="u-current-stock" style="font-size:20px; font-weight:bold; color:var(--primary-color);">0</div>
+                    
+                    <div class="stock-box-container">
+                        <div style="flex:1;">
+                            <span style="font-size:12px; color:#888;">Current Stock:</span>
+                            <div id="u-current-stock" style="font-size:20px; font-weight:bold; color:var(--primary-color);">0</div>
+                        </div>
+                        <div style="flex:1.5;">
+                            <span style="font-size:12px; color:#888;">Add Quantity:</span>
+                            <!-- step="any" allow decimals for loose stock -->
+                            <input type="number" id="u-new-qty" value="0" step="any" style="margin:5px 0; padding:8px;">
+                        </div>
                     </div>
-                    <div style="flex:1.5;">
-                        <span style="font-size:12px; color:#888;">Add Quantity:</span>
-                        <!-- step="any" allow decimals for loose stock -->
-                        <input type="number" id="u-new-qty" value="0" step="any" style="margin:5px 0; padding:8px;">
-                    </div>
+                    <button class="btn-main" style="margin-top:15px;" onclick="saveStockQuick()">UPDATE STOCK NOW</button>
                 </div>
-                <button class="btn-main" style="margin-top:15px;" onclick="saveStockQuick()">UPDATE STOCK NOW</button>
-            </div>
-        </section>
+            </section>
 
-        <!-- BARCODE GENERATOR PAGE -->
-        <section id="page-barcode-gen" class="section-page">
-            <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-            <h2>Barcode Generator</h2>
-            <div class="form-group no-print">
-                <input type="text" id="gen-barcode-text" placeholder="Enter Barcode Text (e.g. 100203)">
-                <input type="number" id="gen-barcode-qty" placeholder="How many barcodes? (e.g. 20)">
-                <button class="btn-main" onclick="prepareBarcodePrint()"><i class="fas fa-eye"></i> GENERATE PREVIEW</button>
-                <button id="btn-actual-print" class="btn-main" style="display:none; margin-top:10px; background:#27ae60;" onclick="triggerPrint('print-barcode')"><i class="fas fa-print"></i> PRINT A4 BARCODES</button>
-            </div>
-            
-            <div id="barcode-preview-area"></div>
-        </section>
-
-        <!-- ADD PRODUCT PAGE -->
-        <section id="page-add-med" class="section-page">
-            <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-            <h2 id="form-title">Add New Product</h2>
-            <div class="form-group">
-                <div id="reader"></div>
-                <button onclick="startScanner('m-barcode')" style="background:#444; color:white; border:none; padding:10px; border-radius:8px; width:100%; margin-bottom:10px;"><i class="fas fa-camera"></i> SCAN BARCODE</button>
-                <input type="hidden" id="edit-id">
-                <input type="text" id="m-barcode" placeholder="Barcode Number">
-                <input type="text" id="m-name" placeholder="Product Name">
-                <input type="number" id="m-price" placeholder="MRP (Price)">
-                <input type="number" id="m-rate" placeholder="Sale Rate">
-                <input type="number" id="m-stock" placeholder="Stock Quantity">
-                <label style="font-size: 12px; color: #777;">Expiry Date:</label>
-                <input type="date" id="m-expiry">
-                <input type="text" id="m-cat" placeholder="Category">
-                <input type="text" id="m-img" placeholder="Image URL">
-                <button class="btn-main" onclick="saveMedicine()">SAVE PRODUCT</button>
-            </div>
-        </section>
-
-        <!-- VIEW STOCK PAGE -->
-        <section id="page-view-med" class="section-page">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h2>Inventory</h2>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn-print-table" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
-                    <button class="btn-download" onclick="exportStockToExcel()"><i class="fas fa-file-excel"></i> Download XL</button>
-                </div>
-            </div>
-            <input type="text" id="search-med" class="no-print" placeholder="Search by name..." onkeyup="filterMeds()">
-            <div class="med-list-container">
-                <div class="med-header">
-                    <div>Image</div><div>Name</div><div>Price</div><div>Stock</div><div class="action-btns-cell">Actions</div>
-                </div>
-                <div id="med-list-render"></div>
-            </div>
-        </section>
-
-        <!-- SELL PAGE -->
-        <section id="page-sell" class="section-page">
-            <h2>Create Billing</h2>
-            <div class="form-group">
-                <div id="reader-sell"></div>
-                <button onclick="startScanner('sell-barcode', true)" style="background:#444; color:white; border:none; padding:12px; border-radius:8px; width:100%; margin-bottom:10px; font-weight:bold;"><i class="fas fa-barcode"></i> SCAN PRODUCT</button>
-                
-                <!-- GENERAL PRODUCT SEARCH -->
-                <div style="position:relative;">
-                    <input type="text" id="sell-search" placeholder="Manual Search Product..." onkeyup="searchToSell()">
-                    <div id="sell-popup" class="search-popup"></div>
-                </div>
-
-                <!-- NEW: LOOSE PRODUCT SEARCH ONLY -->
-                <div style="position:relative; margin-top: 10px;">
-                    <input type="text" id="sell-loose-search" placeholder="Search Loose Product (Kg/Gm)..." onkeyup="searchLooseToSell()" style="border: 1px solid #e67e22;">
-                    <div id="sell-loose-popup" class="search-popup"></div>
+            <!-- BARCODE GENERATOR PAGE -->
+            <section id="page-barcode-gen" class="section-page">
+                <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <h2>Barcode Generator</h2>
+                <div class="form-group no-print">
+                    <input type="text" id="gen-barcode-text" placeholder="Enter Barcode Text (e.g. 100203)">
+                    <input type="number" id="gen-barcode-qty" placeholder="How many barcodes? (e.g. 20)">
+                    <button class="btn-main" onclick="prepareBarcodePrint()"><i class="fas fa-eye"></i> GENERATE PREVIEW</button>
+                    <button id="btn-actual-print" class="btn-main" style="display:none; margin-top:10px; background:#27ae60;" onclick="triggerPrint('print-barcode')"><i class="fas fa-print"></i> PRINT A4 BARCODES</button>
                 </div>
                 
-                <input type="hidden" id="sell-barcode">
-            </div>
+                <div id="barcode-preview-area"></div>
+            </section>
 
-            <div id="qty-box" class="qty-selection-box">
-                <h4 id="selected-med-name" style="margin:0 0 10px 0; color:var(--primary-color);">Product Name</h4>
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <!-- step="any" allowed here so loose products can be sold in fractions -->
-                    <input type="number" id="input-qty" placeholder="Qty" min="0" step="any" style="margin:0; flex:1;">
-                    <!-- GM / KG Dropdown (Only shows for loose products) -->
-                    <select id="loose-unit" style="display:none; margin:0; width: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-                        <option value="gm">Gm</option>
-                        <option value="kg">Kg</option>
-                    </select>
-                    <button onclick="confirmAddToCart()" style="background:var(--primary-color); color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer;">ADD</button>
-                    <button onclick="cancelSelection()" style="background:#ccc; border:none; padding:10px; border-radius:8px; cursor:pointer;">X</button>
+            <!-- ADD PRODUCT PAGE -->
+            <section id="page-add-med" class="section-page">
+                <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <h2 id="form-title">Add New Product</h2>
+                <div class="form-group">
+                    <div id="reader"></div>
+                    <button onclick="startScanner('m-barcode')" style="background:#444; color:white; border:none; padding:10px; border-radius:8px; width:100%; margin-bottom:10px;"><i class="fas fa-camera"></i> SCAN BARCODE</button>
+                    <input type="hidden" id="edit-id">
+                    <input type="text" id="m-barcode" placeholder="Barcode Number">
+                    <input type="text" id="m-name" placeholder="Product Name">
+                    <input type="number" id="m-price" placeholder="MRP (Price)">
+                    <input type="number" id="m-rate" placeholder="Sale Rate">
+                    <input type="number" id="m-stock" placeholder="Stock Quantity">
+                    <label style="font-size: 12px; color: #777;">Expiry Date:</label>
+                    <input type="date" id="m-expiry">
+                    <input type="text" id="m-cat" placeholder="Category">
+                    <input type="text" id="m-img" placeholder="Image URL">
+                    <button class="btn-main" onclick="saveMedicine()">SAVE PRODUCT</button>
                 </div>
-            </div>
+            </section>
 
-            <div class="cart-box">
+            <!-- VIEW STOCK PAGE -->
+            <section id="page-view-med" class="section-page">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h3 style="margin:0;">Cart List</h3>
-                    <button onclick="resetCart()" style="color:red; background:none; border:none; cursor:pointer;"><i class="fas fa-trash-alt"></i> Reset</button>
+                    <h2>Inventory</h2>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-print-table" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
+                        <button class="btn-download" onclick="exportStockToExcel()"><i class="fas fa-file-excel"></i> Download XL</button>
+                    </div>
                 </div>
-                <div id="cart-render" style="margin-top:10px;"></div>
-                <hr>
-                <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span id="subtotal">0</span></div>
+                <input type="text" id="search-med" class="no-print" placeholder="Search by name..." onkeyup="filterMeds()">
+                <div class="med-list-container">
+                    <div class="med-header">
+                        <div>Image</div><div>Name</div><div>Price</div><div>Stock</div><div class="action-btns-cell">Actions</div>
+                    </div>
+                    <div id="med-list-render"></div>
+                </div>
+            </section>
+
+            <!-- SELL PAGE -->
+            <section id="page-sell" class="section-page">
+                <h2>Create Billing</h2>
+                <div class="form-group">
+                    <div id="reader-sell"></div>
+                    <button onclick="startScanner('sell-barcode', true)" style="background:#444; color:white; border:none; padding:12px; border-radius:8px; width:100%; margin-bottom:10px; font-weight:bold;"><i class="fas fa-barcode"></i> SCAN PRODUCT</button>
+                    
+                    <!-- GENERAL PRODUCT SEARCH -->
+                    <div style="position:relative;">
+                        <input type="text" id="sell-search" placeholder="Manual Search Product..." onkeyup="searchToSell()">
+                        <div id="sell-popup" class="search-popup"></div>
+                    </div>
+
+                    <!-- NEW: LOOSE PRODUCT SEARCH ONLY -->
+                    <div style="position:relative; margin-top: 10px;">
+                        <input type="text" id="sell-loose-search" placeholder="Search Loose Product (Kg/Gm)..." onkeyup="searchLooseToSell()" style="border: 1px solid #e67e22;">
+                        <div id="sell-loose-popup" class="search-popup"></div>
+                    </div>
+                    
+                    <input type="hidden" id="sell-barcode">
+                </div>
+
+                <div id="qty-box" class="qty-selection-box">
+                    <h4 id="selected-med-name" style="margin:0 0 10px 0; color:var(--primary-color);">Product Name</h4>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <!-- step="any" allowed here so loose products can be sold in fractions -->
+                        <input type="number" id="input-qty" placeholder="Qty" min="0" step="any" style="margin:0; flex:1;">
+                        <!-- GM / KG Dropdown (Only shows for loose products) -->
+                        <select id="loose-unit" style="display:none; margin:0; width: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                            <option value="gm">Gm</option>
+                            <option value="kg">Kg</option>
+                        </select>
+                        <button onclick="confirmAddToCart()" style="background:var(--primary-color); color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer;">ADD</button>
+                        <button onclick="cancelSelection()" style="background:#ccc; border:none; padding:10px; border-radius:8px; cursor:pointer;">X</button>
+                    </div>
+                </div>
+
+                <div class="cart-box">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="margin:0;">Cart List</h3>
+                        <button onclick="resetCart()" style="color:red; background:none; border:none; cursor:pointer;"><i class="fas fa-trash-alt"></i> Reset</button>
+                    </div>
+                    <div id="cart-render" style="margin-top:10px;"></div>
+                    <hr>
+                    <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span id="subtotal">0</span></div>
+                    
+                    <!-- FLAT DISCOUNT ADDED HERE ALONGSIDE PERCENTAGE -->
+                    <div style="display:flex; gap:10px; margin-top: 10px;">
+                        <input type="number" id="discount" placeholder="Discount (%)" value="0" oninput="calculateTotal()" style="margin:0;">
+                        <input type="number" id="discount-amt" placeholder="Discount (₹ Amt)" value="0" oninput="calculateTotal()" style="margin:0; border-color: #3498db;">
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; font-weight:bold; color:var(--primary-color); margin-top:10px;">
+                        <span>Grand Total:</span><span id="grand-total">0</span>
+                    </div>
+                    <select id="pay-mode"><option value="Offline">Cash</option><option value="Online">Online</option></select>
+                    <button class="btn-main" onclick="openCustomerForm()">CONFIRM SALE (PAY)</button>
+                </div>
+            </section>
+
+            <!-- THERMAL INVOICE PAGE -->
+            <section id="page-invoice" class="section-page">
+                <div class="no-print" style="margin-bottom:15px; display:flex; gap:10px; justify-content:center;">
+                    <button onclick="goToPage('page-sell')" style="background:#444; color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-arrow-left"></i> Back</button>
+                    <!-- NEW: Thermal Bluetooth Print Trigger Here -->
+                    <button onclick="printThermalReceipt()" style="background:var(--primary-color); color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-print"></i> Print Receipt</button>
+                </div>
+
+                <div class="invoice-wrapper" id="receipt-print-area">
+                    <div class="inv-center">
+                        <div style="margin-bottom: 5px;"><img src="https://cdn-icons-png.flaticon.com/512/3258/3258546.png" style="width: 40px;" alt="Logo"></div>
+                        <div class="inv-store-name">COSMO STORE</div>
+                        <div style="font-size:11px;">City, PIN 123456, India<br>Mob: +91 0000000000</div>
+                    </div>
+                    <div class="inv-sep"></div>
+                    <div class="inv-details">
+                        Date: <span id="inv-date-display">---</span><br>
+                        Bill: #<span id="inv-no-display">---</span><br>
+                        Cust: <span id="inv-cust-name">---</span><br>
+                        Phone: <span id="inv-cust-phone">---</span>
+                    </div>
+                    <div class="inv-sep"></div>
+                    <table class="inv-main-table">
+                        <thead>
+                            <tr>
+                                <th width="60%">Items</th>
+                                <th width="15%" class="text-center">Qty</th>
+                                <th width="25%" class="text-right">Amt</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inv-items-render"></tbody>
+                    </table>
+                    <div class="inv-sep"></div>
+                    <div class="inv-totals">
+                        Sub Total: Rs.<span id="inv-sub-display">0.00</span><br>
+                        <!-- INVOICE UPDATED TO SHOW FLAT DISCOUNT AS WELL -->
+                        Discount: <span id="inv-disc-percent">0</span>% | Rs.<span id="inv-disc-amt">0.00</span><br>
+                        <div class="inv-sep" style="margin: 5px 0 5px auto; width: 60%;"></div>
+                        <b style="font-size: 15px;">TOTAL: Rs.<span id="inv-total-display">0.00</span></b>
+                    </div>
+                    <div class="inv-qr">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=yourupi@ybl&pn=CosmoStore&cu=INR" alt="UPI QR">
+                        <div style="font-size:11px; margin-top:5px; font-weight: bold;">SCAN TO PAY VIA UPI</div>
+                    </div>
+                    <div class="inv-sep"></div>
+                    <div class="inv-footer">
+                        *** THANK YOU ! VISIT AGAIN ***<br>
+                        Goods once sold cannot be returned
+                    </div>
+                </div>
+            </section>
+
+            <!-- REPORT PAGE -->
+            <section id="page-report" class="section-page">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2>Sales Analysis</h2>
+                    <button class="btn-print-table no-print" onclick="triggerPrint('print-table')" style="margin-bottom:0;"><i class="fas fa-print"></i> Print Reports</button>
+                </div>
                 
-                <!-- FLAT DISCOUNT ADDED HERE ALONGSIDE PERCENTAGE -->
-                <div style="display:flex; gap:10px; margin-top: 10px;">
-                    <input type="number" id="discount" placeholder="Discount (%)" value="0" oninput="calculateTotal()" style="margin:0;">
-                    <input type="number" id="discount-amt" placeholder="Discount (₹ Amt)" value="0" oninput="calculateTotal()" style="margin:0; border-color: #3498db;">
+                <div class="stats-row no-print">
+                    <div class="stat-box"><h4>Today</h4><div id="stat-today">0</div></div>
+                    <div class="stat-box"><h4>Yesterday</h4><div id="stat-yest">0</div></div>
+                    <div class="stat-box"><h4>Monthly</h4><div id="stat-month">0</div></div>
+                </div>
+
+                <div class="graph-container no-print">
+                    <canvas id="salesChart" height="200"></canvas>
+                </div>
+
+                <div class="no-print" style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="btn-download" onclick="exportSalesReport('today')"><i class="fas fa-file-excel"></i> Today XL</button>
+                    <button class="btn-download" onclick="exportSalesReport('yesterday')"><i class="fas fa-file-excel"></i> Yesterday XL</button>
+                    <button class="btn-download" onclick="exportSalesReport('month')"><i class="fas fa-file-excel"></i> Monthly XL</button>
+                </div>
+
+                <input type="date" id="report-date" class="no-print" onchange="loadReport()" style="margin-top:15px;">
+                <div class="form-group" style="margin-top:10px; background:var(--primary-color); color:white; text-align:center;">
+                    <h3 id="report-total-amt">Total Sale: 0</h3>
                 </div>
                 
-                <div style="display:flex; justify-content:space-between; font-weight:bold; color:var(--primary-color); margin-top:10px;">
-                    <span>Grand Total:</span><span id="grand-total">0</span>
+                <div class="report-container">
+                    <table class="report-table">
+                        <thead><tr><th>SL</th><th>Customer</th><th>Amount</th><th class="action-btns-cell">Action</th></tr></thead>
+                        <tbody id="report-list"></tbody>
+                    </table>
                 </div>
-                <select id="pay-mode"><option value="Offline">Cash</option><option value="Online">Online</option></select>
-                <button class="btn-main" onclick="openCustomerForm()">CONFIRM SALE (PAY)</button>
-            </div>
-        </section>
+            </section>
 
-        <!-- THERMAL INVOICE PAGE -->
-        <section id="page-invoice" class="section-page">
-            <div class="no-print" style="margin-bottom:15px; display:flex; gap:10px; justify-content:center;">
-                <button onclick="goToPage('page-sell')" style="background:#444; color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-arrow-left"></i> Back</button>
-                <!-- NEW: Thermal Bluetooth Print Trigger Here -->
-                <button onclick="printThermalReceipt()" style="background:var(--primary-color); color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-print"></i> Print Receipt</button>
-            </div>
-
-            <div class="invoice-wrapper" id="receipt-print-area">
-                <div class="inv-center">
-                    <div style="margin-bottom: 5px;"><img src="https://cdn-icons-png.flaticon.com/512/3258/3258546.png" style="width: 40px;" alt="Logo"></div>
-                    <div class="inv-store-name">COSMO STORE</div>
-                    <div style="font-size:11px;">City, PIN 123456, India<br>Mob: +91 0000000000</div>
+            <!-- EXPIRED PRODUCTS PAGE -->
+            <section id="page-expired" class="section-page">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <button onclick="goToPage('page-home')" class="no-print" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-print-table no-print" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
+                        <button class="btn-download no-print" onclick="exportFilteredToExcel('expired')"><i class="fas fa-file-excel"></i> Download XL</button>
+                    </div>
                 </div>
-                <div class="inv-sep"></div>
-                <div class="inv-details">
-                    Date: <span id="inv-date-display">---</span><br>
-                    Bill: #<span id="inv-no-display">---</span><br>
-                    Cust: <span id="inv-cust-name">---</span><br>
-                    Phone: <span id="inv-cust-phone">---</span>
+                <h2>Expired Products</h2>
+                <div class="med-list-container">
+                    <div class="med-header" style="background:#ffdada;">
+                        <div>Image</div><div>Name</div><div>Price</div><div>Stock</div><div>Expiry Date</div>
+                    </div>
+                    <div id="expired-list"></div>
                 </div>
-                <div class="inv-sep"></div>
-                <table class="inv-main-table">
-                    <thead>
-                        <tr>
-                            <th width="60%">Items</th>
-                            <th width="15%" class="text-center">Qty</th>
-                            <th width="25%" class="text-right">Amt</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inv-items-render"></tbody>
-                </table>
-                <div class="inv-sep"></div>
-                <div class="inv-totals">
-                    Sub Total: Rs.<span id="inv-sub-display">0.00</span><br>
-                    <!-- INVOICE UPDATED TO SHOW FLAT DISCOUNT AS WELL -->
-                    Discount: <span id="inv-disc-percent">0</span>% | Rs.<span id="inv-disc-amt">0.00</span><br>
-                    <div class="inv-sep" style="margin: 5px 0 5px auto; width: 60%;"></div>
-                    <b style="font-size: 15px;">TOTAL: Rs.<span id="inv-total-display">0.00</span></b>
+            </section>
+
+            <!-- LOW STOCK PAGE -->
+            <section id="page-lowstock" class="section-page">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <button onclick="goToPage('page-home')" class="no-print" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-print-table no-print" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
+                        <button class="btn-download no-print" onclick="exportFilteredToExcel('low')"><i class="fas fa-file-excel"></i> Download XL</button>
+                    </div>
                 </div>
-                <div class="inv-qr">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=yourupi@ybl&pn=CosmoStore&cu=INR" alt="UPI QR">
-                    <div style="font-size:11px; margin-top:5px; font-weight: bold;">SCAN TO PAY VIA UPI</div>
+                <h2>Low Stock Products</h2>
+                <div class="med-list-container">
+                    <div id="lowstock-list"></div>
                 </div>
-                <div class="inv-sep"></div>
-                <div class="inv-footer">
-                    *** THANK YOU ! VISIT AGAIN ***<br>
-                    Goods once sold cannot be returned
+            </section>
+
+            <!-- NO STOCK PAGE -->
+            <section id="page-nostock" class="section-page">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <button onclick="goToPage('page-home')" class="no-print" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-print-table no-print" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
+                        <button class="btn-download no-print" onclick="exportFilteredToExcel('no')"><i class="fas fa-file-excel"></i> Download XL</button>
+                    </div>
                 </div>
-            </div>
-        </section>
-
-        <!-- REPORT PAGE -->
-        <section id="page-report" class="section-page">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h2>Sales Analysis</h2>
-                <button class="btn-print-table no-print" onclick="triggerPrint('print-table')" style="margin-bottom:0;"><i class="fas fa-print"></i> Print Reports</button>
-            </div>
-            
-            <div class="stats-row no-print">
-                <div class="stat-box"><h4>Today</h4><div id="stat-today">0</div></div>
-                <div class="stat-box"><h4>Yesterday</h4><div id="stat-yest">0</div></div>
-                <div class="stat-box"><h4>Monthly</h4><div id="stat-month">0</div></div>
-            </div>
-
-            <div class="graph-container no-print">
-                <canvas id="salesChart" height="200"></canvas>
-            </div>
-
-            <div class="no-print" style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;">
-                <button class="btn-download" onclick="exportSalesReport('today')"><i class="fas fa-file-excel"></i> Today XL</button>
-                <button class="btn-download" onclick="exportSalesReport('yesterday')"><i class="fas fa-file-excel"></i> Yesterday XL</button>
-                <button class="btn-download" onclick="exportSalesReport('month')"><i class="fas fa-file-excel"></i> Monthly XL</button>
-            </div>
-
-            <input type="date" id="report-date" class="no-print" onchange="loadReport()" style="margin-top:15px;">
-            <div class="form-group" style="margin-top:10px; background:var(--primary-color); color:white; text-align:center;">
-                <h3 id="report-total-amt">Total Sale: 0</h3>
-            </div>
-            
-            <div class="report-container">
-                <table class="report-table">
-                    <thead><tr><th>SL</th><th>Customer</th><th>Amount</th><th class="action-btns-cell">Action</th></tr></thead>
-                    <tbody id="report-list"></tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- EXPIRED PRODUCTS PAGE -->
-        <section id="page-expired" class="section-page">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <button onclick="goToPage('page-home')" class="no-print" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn-print-table no-print" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
-                    <button class="btn-download no-print" onclick="exportFilteredToExcel('expired')"><i class="fas fa-file-excel"></i> Download XL</button>
+                <h2>Out of Stock Products</h2>
+                <div class="med-list-container">
+                    <div id="nostock-list"></div>
                 </div>
-            </div>
-            <h2>Expired Products</h2>
-            <div class="med-list-container">
-                <div class="med-header" style="background:#ffdada;">
-                    <div>Image</div><div>Name</div><div>Price</div><div>Stock</div><div>Expiry Date</div>
-                </div>
-                <div id="expired-list"></div>
-            </div>
-        </section>
+            </section>
+        </main>
 
-        <!-- LOW STOCK PAGE -->
-        <section id="page-lowstock" class="section-page">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <button onclick="goToPage('page-home')" class="no-print" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn-print-table no-print" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
-                    <button class="btn-download no-print" onclick="exportFilteredToExcel('low')"><i class="fas fa-file-excel"></i> Download XL</button>
-                </div>
+        <!-- FOOTER -->
+        <footer class="no-print">
+            <div class="foot-item active" onclick="goToPage('page-home')">
+                <i class="fas fa-house"></i>
+                <span>Home</span>
             </div>
-            <h2>Low Stock Products</h2>
-            <div class="med-list-container">
-                <div id="lowstock-list"></div>
+            <div class="foot-item" onclick="goToPage('page-view-med')">
+                <i class="fas fa-layer-group"></i>
+                <span>Stock</span>
             </div>
-        </section>
-
-        <!-- NO STOCK PAGE -->
-        <section id="page-nostock" class="section-page">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <button onclick="goToPage('page-home')" class="no-print" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn-print-table no-print" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
-                    <button class="btn-download no-print" onclick="exportFilteredToExcel('no')"><i class="fas fa-file-excel"></i> Download XL</button>
-                </div>
+            <div class="foot-item" onclick="goToPage('page-sell')">
+                <i class="fas fa-cart-plus"></i>
+                <span>Sell</span>
             </div>
-            <h2>Out of Stock Products</h2>
-            <div class="med-list-container">
-                <div id="nostock-list"></div>
+            <div class="foot-item" onclick="goToPage('page-report')">
+                <i class="fas fa-file-invoice"></i>
+                <span>Report</span>
             </div>
-        </section>
-    </main>
-
-    <!-- FOOTER -->
-    <footer class="no-print">
-        <div class="foot-item active" onclick="goToPage('page-home')">
-            <i class="fas fa-house"></i>
-            <span>Home</span>
-        </div>
-        <div class="foot-item" onclick="goToPage('page-view-med')">
-            <i class="fas fa-layer-group"></i>
-            <span>Stock</span>
-        </div>
-        <div class="foot-item" onclick="goToPage('page-sell')">
-            <i class="fas fa-cart-plus"></i>
-            <span>Sell</span>
-        </div>
-        <div class="foot-item" onclick="goToPage('page-report')">
-            <i class="fas fa-file-invoice"></i>
-            <span>Report</span>
-        </div>
-    </footer>
+        </footer>
+    </div> <!-- END APP CONTENT -->
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs, onSnapshot, doc, updateDoc, deleteDoc, query, where, serverTimestamp } 
         from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        // FIREBASE AUTH IMPORT
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } 
+        from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyD_MJAYCk5JZuOn6_YwsBC86gBKxwC_EKY",
@@ -749,12 +779,44 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app); // INITIALIZE AUTH
 
         let medicines = []; let cart =[]; let salesList = []; let allSalesForExport =[];
         let html5QrCode = null; let myChart = null; let tempSelectedMed = null; let selectedMedForUpdate = null;
 
         const playSuccess = () => { try { document.getElementById('sound-success').play(); } catch(e){} };
         const playError = () => { try { document.getElementById('sound-error').play(); } catch(e){} };
+
+        // --- AUTHENTICATION LOGIC ---
+        window.loginUser = async () => {
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
+            if(!email || !pass) return alert("Please enter email and password!");
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+                // login success, auth state change will handle ui
+            } catch (err) {
+                alert("Login Failed: " + err.message);
+            }
+        };
+
+        window.logoutUser = async () => {
+            if(confirm("Are you sure you want to logout?")) {
+                await signOut(auth);
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            if(user) {
+                // LOGGED IN: Hide Login Page, Show Main App
+                document.getElementById('login-container').style.display = 'none';
+                document.getElementById('app-content').style.display = 'block';
+            } else {
+                // LOGGED OUT: Show Login Page, Hide Main App
+                document.getElementById('login-container').style.display = 'flex';
+                document.getElementById('app-content').style.display = 'none';
+            }
+        });
 
         // --- MASTER PRINT FUNCTION ---
         window.triggerPrint = (modeClass) => {
@@ -1397,4 +1459,4 @@
 
     </script>
 </body>
-                    </html>
+                        </html>
