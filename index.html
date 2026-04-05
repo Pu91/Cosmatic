@@ -287,13 +287,6 @@
         <p id="msgText">Saved Successfully!</p>
         <button onclick="closeMsg()" style="background:white; border:none; padding:10px 20px; border-radius:5px; color:var(--primary-color); font-weight:bold; cursor:pointer;">OK</button>
     </div>
-    
-    <!-- Profile Modal (Logout) -->
-    <div id="profileModal" style="display:none; position:fixed; top:65px; right:20px; background:white; padding:20px; border-radius:10px; box-shadow:0 5px 15px rgba(0,0,0,0.2); z-index:5000; min-width:180px; text-align:center;">
-        <i class="fas fa-user-circle" style="font-size: 40px; color: var(--primary-color); margin-bottom: 10px;"></i>
-        <p id="user-email-display" style="margin:0 0 15px 0; font-size:13px; color: #555; word-break: break-all;">admin@cosmo.com</p>
-        <button onclick="logoutUser()" style="background:var(--danger); color:white; border:none; padding:10px 15px; border-radius:5px; cursor:pointer; width:100%; font-weight:bold;"><i class="fas fa-sign-out-alt"></i> Logout</button>
-    </div>
 
     <!-- Modal for Views -->
     <div id="detailModal">
@@ -318,30 +311,15 @@
         </div>
     </div>
 
-    <header id="app-header" style="display:none;">
+    <header>
         <div class="store-name">💄 CosmoStore</div>
         <button class="btn-refresh" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
-        <div class="profile-icon" onclick="toggleProfile()"><i class="fas fa-user-circle"></i></div>
+        <div class="profile-icon"><i class="fas fa-user-circle"></i></div>
     </header>
 
     <main>
-        <!-- NEW: LOGIN PAGE -->
-        <section id="page-login" class="section-page active-page">
-            <div style="max-width:350px; margin: 80px auto; background:white; padding:30px; border-radius:15px; box-shadow:0 5px 20px rgba(0,0,0,0.08); text-align:center;">
-                <div style="font-size: 50px; margin-bottom: 10px;"><img src="https://cdn-icons-png.flaticon.com/512/3258/3258546.png" style="width: 70px;" alt="Logo"></div>
-                <h2 style="color:var(--primary-color); margin-top:0; margin-bottom: 5px;">Apna Billing</h2>
-                <p style="color: #777; font-size: 13px; margin-bottom: 25px;">Login to access POS System SDF private limited </p>
-                
-                <input type="email" id="login-email" placeholder="Enter Email" style="width:100%; padding:12px; margin-bottom:15px; border:1px solid #ddd; border-radius:8px; box-sizing:border-box;">
-                <input type="password" id="login-pass" placeholder="Enter Password" style="width:100%; padding:12px; margin-bottom:20px; border:1px solid #ddd; border-radius:8px; box-sizing:border-box;">
-                
-                <button class="btn-main" onclick="loginUser()">LOGIN <i class="fas fa-arrow-right"></i></button>
-                <p style="color: #aaa; font-size: 11px; margin-top: 20px;">Secured by apna billing </p>
-            </div>
-        </section>
-
         <!-- HOME DASHBOARD PAGE -->
-        <section id="page-home" class="section-page">
+        <section id="page-home" class="section-page active-page">
             <h2 style="margin-top:0; color: #555;">Dashboard</h2>
             
             <div class="dashboard-grid">
@@ -601,15 +579,15 @@
         <section id="page-invoice" class="section-page">
             <div class="no-print" style="margin-bottom:15px; display:flex; gap:10px; justify-content:center;">
                 <button onclick="goToPage('page-sell')" style="background:#444; color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-arrow-left"></i> Back</button>
-                <!-- NEW: Thermal Web2Apk RawBT Print Trigger Here -->
+                <!-- NEW: Thermal Bluetooth Print Trigger Here -->
                 <button onclick="printThermalReceipt()" style="background:var(--primary-color); color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-print"></i> Print Receipt</button>
             </div>
 
             <div class="invoice-wrapper" id="receipt-print-area">
                 <div class="inv-center">
                     <div style="margin-bottom: 5px;"><img src="https://cdn-icons-png.flaticon.com/512/3258/3258546.png" style="width: 40px;" alt="Logo"></div>
-                    <div class="inv-store-name">SDF private limited</div>
-                    <div style="font-size:11px;">village-kalikapota, city - kolkata, PIN 743355, India <br>Mob: +91 8798153104</div>
+                    <div class="inv-store-name">COSMO STORE</div>
+                    <div style="font-size:11px;">City, PIN 123456, India<br>Mob: +91 0000000000</div>
                 </div>
                 <div class="inv-sep"></div>
                 <div class="inv-details">
@@ -638,13 +616,13 @@
                     <b style="font-size: 15px;">TOTAL: Rs.<span id="inv-total-display">0.00</span></b>
                 </div>
                 <div class="inv-qr">
-<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi%3A%2F%2Fpay%3Fpa%3D9134873789%40ybl%26pn%3DCosmoStore%26cu%3DINR" alt="UPI QR">
-                    <div style="font-size:11px; margin-top:5px; font-weight: bold;">SCAN TO PAY  UPI</div>
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=yourupi@ybl&pn=CosmoStore&cu=INR" alt="UPI QR">
+                    <div style="font-size:11px; margin-top:5px; font-weight: bold;">SCAN TO PAY VIA UPI</div>
                 </div>
                 <div class="inv-sep"></div>
                 <div class="inv-footer">
                     *** THANK YOU ! VISIT AGAIN ***<br>
-                    Goods once sold
+                    Goods once sold cannot be returned
                 </div>
             </div>
         </section>
@@ -735,7 +713,7 @@
     </main>
 
     <!-- FOOTER -->
-    <footer id="app-footer" class="no-print" style="display:none;">
+    <footer class="no-print">
         <div class="foot-item active" onclick="goToPage('page-home')">
             <i class="fas fa-house"></i>
             <span>Home</span>
@@ -758,8 +736,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs, onSnapshot, doc, updateDoc, deleteDoc, query, where, serverTimestamp } 
         from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } 
-        from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyD_MJAYCk5JZuOn6_YwsBC86gBKxwC_EKY",
@@ -773,57 +749,12 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const auth = getAuth(app); // NEW: Auth Initialized
 
         let medicines = []; let cart =[]; let salesList = []; let allSalesForExport =[];
         let html5QrCode = null; let myChart = null; let tempSelectedMed = null; let selectedMedForUpdate = null;
 
         const playSuccess = () => { try { document.getElementById('sound-success').play(); } catch(e){} };
         const playError = () => { try { document.getElementById('sound-error').play(); } catch(e){} };
-
-        // --- NEW: LOGIN AND AUTH LOGIC ---
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // User is logged in
-                document.getElementById('app-header').style.display = 'flex';
-                document.getElementById('app-footer').style.display = 'flex';
-                document.getElementById('user-email-display').innerText = user.email;
-                goToPage('page-home');
-            } else {
-                // User is logged out
-                document.getElementById('app-header').style.display = 'none';
-                document.getElementById('app-footer').style.display = 'none';
-                document.getElementById('profileModal').style.display = 'none';
-                goToPage('page-login');
-            }
-        });
-
-        window.loginUser = () => {
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-pass').value;
-            if(!email || !pass) return alert("Please enter email and password!");
-            
-            signInWithEmailAndPassword(auth, email, pass)
-            .then((userCredential) => {
-                showMsg("Login Successful!");
-            })
-            .catch((error) => {
-                alert("Login Failed: Incorrect Email or Password!");
-            });
-        };
-
-        window.logoutUser = () => {
-            signOut(auth).then(() => {
-                showMsg("Logged out successfully!");
-            }).catch((error) => {
-                alert("Error: " + error.message);
-            });
-        };
-
-        window.toggleProfile = () => {
-            const modal = document.getElementById('profileModal');
-            modal.style.display = modal.style.display === 'none' ? 'block' : 'none';
-        };
 
         // --- MASTER PRINT FUNCTION ---
         window.triggerPrint = (modeClass) => {
@@ -832,9 +763,17 @@
             setTimeout(() => { document.body.classList.remove(modeClass); }, 500);
         };
 
-        // --- NEW: RAWBT PRINTING LOGIC FOR WEB2APK PRO ---
-        window.printThermalReceipt = () => {
+        // --- NEW: BLUETOOTH THERMAL PRINTING LOGIC WITH FALLBACK ---
+        window.printThermalReceipt = async () => {
             try {
+                // ব্রাউজারে ডাইরেক্ট ব্লুটুথ সাপোর্ট না থাকলে নরমাল প্রিন্ট অপশন ওপেন হবে
+                if (!navigator.bluetooth) {
+                    alert("আপনার ব্রাউজারে ডাইরেক্ট ব্লুটুথ সাপোর্ট নেই! (দয়া করে Chrome ব্রাউজার এবং HTTPS লিংক ব্যবহার করুন)। \n\nবিকল্প হিসেবে নরমাল সিস্টেম প্রিন্ট পেজ ওপেন করা হচ্ছে...");
+                    triggerPrint('print-invoice');
+                    return;
+                }
+
+                // Gather data from the page
                 const invNo = document.getElementById('inv-no-display').innerText;
                 const date = document.getElementById('inv-date-display').innerText;
                 const custName = document.getElementById('inv-cust-name').innerText;
@@ -844,56 +783,108 @@
                 const discAmt = document.getElementById('inv-disc-amt').innerText;
                 const total = document.getElementById('inv-total-display').innerText;
 
-                // RawBT Formatting Tags: [C] Center, [L] Left, [R] Right, <b> Bold
-                let receipt = "[C]<b>COSMO STORE</b>\n";
-                receipt += "[C]City, PIN 123456, India\n";
-                receipt += "[C]Mob: +91 0000000000\n";
-                receipt += "--------------------------------\n"; 
+                let receiptText = "";
+                const ESC = "\x1B";
+                const LF = "\x0A";
+                const INIT = ESC + "@";
+                const ALIGN_CENTER = ESC + "a" + "\x01";
+                const ALIGN_LEFT = ESC + "a" + "\x00";
+                const BOLD_ON = ESC + "E" + "\x01";
+                const BOLD_OFF = ESC + "E" + "\x00";
+
+                receiptText += INIT;
+                receiptText += ALIGN_CENTER + BOLD_ON + "COSMO STORE" + LF;
+                receiptText += BOLD_OFF + "City, PIN 123456, India" + LF;
+                receiptText += "Mob: +91 0000000000" + LF;
+                receiptText += "--------------------------------" + LF; 
                 
-                receipt += "[L]Date: " + date + "\n";
-                receipt += "[L]Bill No: #" + invNo + "\n";
-                if(custName !== "---" && custName !== "Walk-in") receipt += "[L]Cust: " + custName + "\n";
-                if(custPhone !== "---" && custPhone !== "N/A") receipt += "[L]Phone: " + custPhone + "\n";
-                receipt += "--------------------------------\n";
+                receiptText += ALIGN_LEFT;
+                receiptText += "Date: " + date + LF;
+                receiptText += "Bill No: #" + invNo + LF;
+                if(custName !== "---" && custName !== "Walk-in") receiptText += "Cust: " + custName + LF;
+                if(custPhone !== "---" && custPhone !== "N/A") receiptText += "Phone: " + custPhone + LF;
+                receiptText += "--------------------------------" + LF;
                 
-                receipt += "[L]<b>Item          Qty       Amt</b>\n";
-                receipt += "--------------------------------\n";
+                receiptText += "Item          Qty       Amt" + LF;
+                receiptText += "--------------------------------" + LF;
 
                 const rows = document.querySelectorAll('#inv-items-render tr');
                 rows.forEach(row => {
                     const cols = row.querySelectorAll('td');
                     if(cols.length === 3) {
-                        let name = cols[0].innerText.substring(0, 12).padEnd(12, " ");
+                        let nameSpan = cols[0].querySelector('.item-name-part');
+                        let smallSpan = cols[0].querySelector('small');
+                        let fullName = nameSpan ? nameSpan.innerText : cols[0].innerText;
+                        let subDetails = smallSpan ? smallSpan.innerText : "";
+                        
+                        let name = fullName.substring(0, 12).padEnd(12, " ");
                         let qty = cols[1].innerText.padEnd(6, " ");
                         let amt = cols[2].innerText.padStart(8, " ");
-                        receipt += "[L]" + name + "  " + qty + "  " + amt + "\n";
+                        receiptText += name + "  " + qty + "  " + amt + LF;
+                        if (subDetails) {
+                            receiptText += "  " + subDetails + LF;
+                        }
                     }
                 });
 
-                receipt += "--------------------------------\n";
-                receipt += "[R]Sub Total: Rs." + subtotal + "\n";
+                receiptText += "--------------------------------" + LF;
+                receiptText += ALIGN_LEFT + "Sub Total: Rs." + subtotal + LF;
                 if(parseFloat(discPercent)>0 || parseFloat(discAmt)>0) {
-                    receipt += "[R]Discount: " + discPercent + "% | Rs." + discAmt + "\n";
+                    receiptText += "Discount: " + discPercent + "% | Rs." + discAmt + LF;
                 }
-                receipt += "--------------------------------\n";
-                receipt += "[R]<b>TOTAL: Rs." + total + "</b>\n";
-                receipt += "--------------------------------\n";
-                receipt += "[C]THANK YOU ! VISIT AGAIN\n";
-                receipt += "[C]Goods once sold cannot be returned\n";
-                receipt += "\n\n\n"; 
+                receiptText += "--------------------------------" + LF;
+                receiptText += ALIGN_CENTER + BOLD_ON + "TOTAL: Rs." + total + LF + BOLD_OFF;
+                receiptText += "--------------------------------" + LF;
+                receiptText += "THANK YOU ! VISIT AGAIN" + LF;
+                receiptText += "Goods once sold cannot be returned" + LF;
+                receiptText += LF + LF + LF + LF; 
 
-                // Encode for RawBT Intent
-                let rawbtIntent = "intent:" + encodeURI(receipt) + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+                const encoder = new TextEncoder();
+                const data = encoder.encode(receiptText);
+
+                // Request Bluetooth Device
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '0000180a-0000-1000-8000-00805f9b34fb', '49535343-fe7d-4ae5-8fa9-9fafd205e455'] 
+                });
+
+                const server = await device.gatt.connect();
+                const services = await server.getPrimaryServices();
+                let characteristic = null;
                 
-                // WebView Safe Execution (Hidden Anchor Tag Click Method)
-                let a = document.createElement('a');
-                a.href = rawbtIntent;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                for (const service of services) {
+                    const characteristics = await service.getCharacteristics();
+                    for (const char of characteristics) {
+                        if (char.properties.write || char.properties.writeWithoutResponse) {
+                            characteristic = char;
+                            break;
+                        }
+                    }
+                    if (characteristic) break;
+                }
+
+                if (!characteristic) {
+                    throw new Error("Writable characteristic not found on this Bluetooth device.");
+                }
+
+                // Chunk data to 100 bytes to prevent Web Bluetooth limits
+                const CHUNK_SIZE = 100; 
+                for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+                    const chunk = data.slice(i, i + CHUNK_SIZE);
+                    await characteristic.writeValue(chunk);
+                }
+
+                setTimeout(() => {
+                    if (device.gatt.connected) {
+                        device.gatt.disconnect();
+                    }
+                }, 3000);
 
             } catch (error) {
-                alert("দয়া করে Play Store থেকে 'RawBT Print Service' অ্যাপটি ইনস্টল করুন।");
+                console.error(error);
+                alert("প্রিন্টার কানেক্ট করা সম্ভব হয়নি বা বাতিল করা হয়েছে! \n(" + error.message + ")\n\nবিকল্প হিসেবে নরমাল সিস্টেম প্রিন্ট ওপেন করা হচ্ছে...");
+                // এরর হলে বা ইউজার ক্যান্সেল করলে বিকল্প হিসেবে সিস্টেম প্রিন্ট ওপেন হবে
+                triggerPrint('print-invoice');
             }
         };
 
@@ -901,22 +892,19 @@
             if(html5QrCode) { html5QrCode.stop(); html5QrCode = null; } 
             document.querySelectorAll('.section-page').forEach(p => p.classList.remove('active-page'));
             document.getElementById(pageId).classList.add('active-page');
+            document.querySelectorAll('.foot-item').forEach(i => i.classList.remove('active'));
             
-            if(pageId !== 'page-login') {
-                document.querySelectorAll('.foot-item').forEach(i => i.classList.remove('active'));
-                if(pageId === 'page-home') document.querySelectorAll('.foot-item')[0].classList.add('active');
-                if(pageId === 'page-view-med') document.querySelectorAll('.foot-item')[1].classList.add('active');
-                if(pageId === 'page-sell') document.querySelectorAll('.foot-item')[2].classList.add('active');
-                if(pageId === 'page-report') {
-                    document.querySelectorAll('.foot-item')[3].classList.add('active');
-                    fetchDashboardStats();
-                }
-            }
-            
+            if(pageId === 'page-home') document.querySelectorAll('.foot-item')[0].classList.add('active');
+            if(pageId === 'page-view-med') document.querySelectorAll('.foot-item')[1].classList.add('active');
+            if(pageId === 'page-sell') document.querySelectorAll('.foot-item')[2].classList.add('active');
             if(pageId === 'page-update-stock') { 
                 selectedMedForUpdate = null; 
                 document.getElementById('update-result-card').style.display = 'none';
                 document.getElementById('stock-search-input').value = "";
+            }
+            if(pageId === 'page-report') {
+                document.querySelectorAll('.foot-item')[3].classList.add('active');
+                fetchDashboardStats();
             }
         };
 
@@ -959,7 +947,10 @@
 
             const data =[];
             filtered.forEach(sale => {
-                sale.items.forEach(item => { data.push({ 'Date': sale.date, 'Customer': sale.customerName, 'Product': item.name, 'Qty': item.qty, 'Price': item.price, 'Total': item.qty * item.price, 'Grand Total': sale.total, 'Payment': sale.payment }); });
+                sale.items.forEach(item => { 
+                    let sellRate = item.rate || item.price;
+                    data.push({ 'Date': sale.date, 'Customer': sale.customerName, 'Product': item.name, 'Qty': item.qty, 'MRP': item.price, 'Sale Price': sellRate, 'Total': item.qty * sellRate, 'Grand Total': sale.total, 'Payment': sale.payment }); 
+                });
             });
             downloadXL(data, `Sales_Report_${type}`);
         };
@@ -1091,7 +1082,9 @@
             document.getElementById('sell-popup').innerHTML = "";
             document.getElementById('sell-loose-popup').innerHTML = "";
             document.getElementById('sell-search').value = med.name;
-            document.getElementById('selected-med-name').innerText = med.name + " (Price: " + med.price + (med.isLoose ? "/Kg" : "") + ")";
+            
+            let sellRate = med.rate || med.price;
+            document.getElementById('selected-med-name').innerText = med.name + " (MRP: ₹" + med.price + ", Rate: ₹" + sellRate + (med.isLoose ? "/Kg" : "") + ")";
             document.getElementById('qty-box').style.display = "block";
             
             // GRAM / KG LOGIC HERE
@@ -1136,13 +1129,14 @@
         function renderCart() {
             let html = ""; let subtotal = 0;
             cart.forEach((item, index) => {
-                let total = item.price * item.qty; subtotal += total;
+                let sellRate = item.rate || item.price;
+                let total = sellRate * item.qty; subtotal += total;
                 // SHOW GRAM OR KG BEAUTIFULLY IN CART
                 let qtyText = item.isLoose ? (item.qty < 1 ? (item.qty * 1000) + " Gm" : item.qty + " Kg") : item.qty;
-                let priceText = item.isLoose ? item.price + "/Kg" : item.price;
+                let priceText = item.isLoose ? sellRate + "/Kg" : sellRate;
                 
                 html += `<div class="cart-item">
-                    <div><b>${item.name}</b><br><small>${priceText} x ${qtyText}</small></div>
+                    <div><b>${item.name}</b><br><small>MRP: ₹${item.price} | Rate: ₹${priceText} x ${qtyText}</small></div>
                     <div><b>${total.toFixed(2)}</b> <i class="fas fa-trash" style="color:red; margin-left:10px; cursor:pointer;" onclick="removeFromCart(${index})"></i></div>
                 </div>`;
             });
@@ -1174,9 +1168,6 @@
             document.getElementById('customerModal').style.display = 'none';
             goToPage('page-invoice'); 
 
-            // ব্রাউজার প্রিন্ট বন্ধ করে দেওয়া হলো, এখন ব্লুটুথ প্রিন্ট বাটনে ক্লিক করে প্রিন্ট হবে
-            // setTimeout(() => { triggerPrint('print-invoice'); }, 500);
-
             try {
                 await addDoc(collection(db, "sales"), { ...saleObj, timestamp: serverTimestamp() });
                 for (let item of cart) {
@@ -1198,8 +1189,16 @@
 
             let html = "";
             sale.items.forEach((item) => { 
+                let sellRate = item.rate || item.price;
                 let qtyText = item.isLoose ? (item.qty < 1 ? (item.qty * 1000) + "g" : item.qty + "kg") : item.qty;
-                html += `<tr><td>${item.name}</td><td class="text-center">${qtyText}</td><td class="text-right">${(item.qty * item.price).toFixed(2)}</td></tr>`; 
+                html += `<tr>
+                    <td>
+                        <span class="item-name-part">${item.name}</span><br>
+                        <small style="font-size:10px; color:#555;">MRP: ${item.price} | Rate: ${sellRate}</small>
+                    </td>
+                    <td class="text-center">${qtyText}</td>
+                    <td class="text-right">${(item.qty * sellRate).toFixed(2)}</td>
+                </tr>`; 
             });
             document.getElementById('inv-items-render').innerHTML = html;
         }
@@ -1398,4 +1397,4 @@
 
     </script>
 </body>
-            </html>
+                    </html>
