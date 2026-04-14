@@ -297,8 +297,8 @@
     <!-- LOGIN CONTAINER -->
     <div id="login-container">
         <div class="login-box">
-            <h2 style="color:var(--primary-color); margin-top:0;">💄 CosmoStore</h2>
-            <p style="color:#777; margin-bottom:20px; font-size:14px;">Admin Login Panel</p>
+            <h2 style="color:var(--primary-color); margin-top:0;">Apna billing</h2>
+            <p style="color:#777; margin-bottom:20px; font-size:14px;">Admin Login Panel sdf privat limited</p>
             <input type="email" id="login-email" placeholder="Email Address" style="width:100%; padding:12px; margin-bottom:15px; border:1px solid #ddd; border-radius:8px;">
             <input type="password" id="login-password" placeholder="Password" style="width:100%; padding:12px; margin-bottom:20px; border:1px solid #ddd; border-radius:8px;">
             <button class="btn-main" onclick="loginUser()">LOGIN</button>
@@ -337,7 +337,7 @@
         </div>
 
         <header>
-            <div class="store-name">💄 CosmoStore</div>
+            <div class="store-name">SDF private limited</div>
             <button class="btn-refresh" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
             <!-- PROFILE ICON TO LOGOUT -->
             <div class="profile-icon" onclick="logoutUser()" title="Logout"><i class="fas fa-user-circle"></i></div>
@@ -612,8 +612,8 @@
                 <div class="invoice-wrapper" id="receipt-print-area">
                     <div class="inv-center">
                         <div style="margin-bottom: 5px;"><img src="https://cdn-icons-png.flaticon.com/512/3258/3258546.png" style="width: 40px;" alt="Logo"></div>
-                        <div class="inv-store-name">COSMO STORE</div>
-                        <div style="font-size:11px;">City, PIN 123456, India<br>Mob: +91 0000000000</div>
+                        <div class="inv-store-name">sdf private limited</div>
+                        <div style="font-size:11px;">city-kolkata, pin- 743355, India<br>Mob: +91 8798153104</div>
                     </div>
                     <div class="inv-sep"></div>
                     <div class="inv-details">
@@ -642,13 +642,13 @@
                         <b style="font-size: 15px;">TOTAL: Rs.<span id="inv-total-display">0.00</span></b>
                     </div>
                     <div class="inv-qr">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=yourupi@ybl&pn=CosmoStore&cu=INR" alt="UPI QR">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=paytmqr6szv5j&pn=CosmoStore&cu=INR" alt="UPI QR">
                         <div style="font-size:11px; margin-top:5px; font-weight: bold;">SCAN TO PAY VIA UPI</div>
                     </div>
                     <div class="inv-sep"></div>
                     <div class="inv-footer">
                         *** THANK YOU ! VISIT AGAIN ***<br>
-                        Goods once sold cannot be returned
+                        Goods once sold
                     </div>
                 </div>
             </section>
@@ -993,12 +993,25 @@
         };
 
         window.goToPage = (pageId) => {
-            if(html5QrCode) { html5QrCode.stop(); html5QrCode = null; } 
+            if(html5QrCode) { 
+                try { html5QrCode.stop().catch(e=>{}); } catch(e){} 
+                html5QrCode = null; 
+            } 
             document.querySelectorAll('.section-page').forEach(p => p.classList.remove('active-page'));
             document.getElementById(pageId).classList.add('active-page');
             document.querySelectorAll('.foot-item').forEach(i => i.classList.remove('active'));
             
-            if(pageId === 'page-home') document.querySelectorAll('.foot-item')[0].classList.add('active');
+            if(pageId === 'page-home') {
+                document.querySelectorAll('.foot-item')[0].classList.add('active');
+                // যখনই Home পেজে যাবে, তখন Add Form-এর ডাটা ক্লিয়ার হয়ে যাবে, যাতে Edit এর পর আবার নতুন কিছু অ্যাড করতে গেলে আগের ডাটা না থাকে।
+                document.getElementById('edit-id').value = "";
+                document.getElementById('form-title').innerText = "Add New Product";
+                ['m-barcode','m-name','m-price','m-rate','m-stock','m-expiry','m-cat','m-img'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ""; });
+                
+                document.getElementById('edit-l-id').value = "";
+                document.getElementById('l-form-title').innerText = "Add Loose Product";
+                ['l-name','l-price','l-stock','l-cat','l-img'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ""; });
+            }
             if(pageId === 'page-view-med') document.querySelectorAll('.foot-item')[1].classList.add('active');
             if(pageId === 'page-sell') document.querySelectorAll('.foot-item')[2].classList.add('active');
             if(pageId === 'page-update-stock') { 
@@ -1081,14 +1094,18 @@
         // --- SCANNER LOGIC ---
         window.startScanner = (inputId, autoSell = false, isUpdate = false) => {
             let readerId = autoSell ? "reader-sell" : (isUpdate ? "reader-update" : "reader");
-            if(html5QrCode) html5QrCode.stop();
+            if(html5QrCode) { try { html5QrCode.stop().catch(e=>{}); } catch(e){} }
             html5QrCode = new Html5Qrcode(readerId);
             html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
                 (decodedText) => {
                     document.getElementById(inputId).value = decodedText;
                     if(autoSell) handleBarcodeSell(decodedText);
                     else if(isUpdate) handleBarcodeUpdate(decodedText);
-                    else { playSuccess(); html5QrCode.stop(); }
+                    else { 
+                        playSuccess(); 
+                        try { html5QrCode.stop().catch(e=>{}); } catch(e){} 
+                        html5QrCode = null; 
+                    }
                 }
             ).catch(err => console.log(err));
         };
@@ -1096,7 +1113,11 @@
         // --- UPDATE STOCK LOGIC ---
         function handleBarcodeUpdate(barcode) {
             const med = medicines.find(m => m.barcode === barcode);
-            if(med) { playSuccess(); if(html5QrCode) html5QrCode.stop(); showProductInUpdateCard(med); } 
+            if(med) { 
+                playSuccess(); 
+                if(html5QrCode) { try { html5QrCode.stop().catch(e=>{}); } catch(e){} html5QrCode = null; } 
+                showProductInUpdateCard(med); 
+            } 
             else { playError(); alert("Product not found!"); }
         }
         window.handleBarcodeUpdate = handleBarcodeUpdate;
@@ -1390,6 +1411,11 @@
             if(!data.name || !data.price) return alert("Fill Name and Price!");
             if(id) await updateDoc(doc(db, "medicines", id), data); else await addDoc(collection(db, "medicines"), data);
             showMsg("Saved Successfully!");
+            
+            // ডাটা সেভ হওয়ার পর ফর্ম ক্লিয়ার করে দেওয়া হচ্ছে
+            document.getElementById('edit-id').value = "";
+            document.getElementById('form-title').innerText = "Add New Product";
+            ['m-barcode','m-name','m-price','m-rate','m-stock','m-expiry','m-cat','m-img'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ""; });
         };
 
         // NEW: SAVE LOOSE PRODUCT LOGIC
@@ -1407,8 +1433,11 @@
             if(!data.name || !data.price) return alert("Fill Name and Price!");
             if(id) await updateDoc(doc(db, "medicines", id), data); else await addDoc(collection(db, "medicines"), data);
             showMsg("Loose Product Saved!");
+            
+            // ডাটা সেভ হওয়ার পর ফর্ম ক্লিয়ার করে দেওয়া হচ্ছে
             document.getElementById('edit-l-id').value = "";
             document.getElementById('l-form-title').innerText = "Add Loose Product";
+            ['l-name','l-price','l-stock','l-cat','l-img'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ""; });
         };
 
         window.viewMedicine = (id) => {
@@ -1501,4 +1530,4 @@
 
     </script>
 </body>
-    </html>
+                </html>
