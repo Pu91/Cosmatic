@@ -642,7 +642,7 @@
                         <b style="font-size: 15px;">TOTAL: Rs.<span id="inv-total-display">0.00</span></b>
                     </div>
                     <div class="inv-qr">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=paytmqr6szv5j&pn=CosmoStore&cu=INR" alt="UPI QR">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=paytmqr6szv5j@ptys&pn=suraj molla&cu=INR" alt="UPI QR">
                         <div style="font-size:11px; margin-top:5px; font-weight: bold;">SCAN TO PAY VIA UPI</div>
                     </div>
                     <div class="inv-sep"></div>
@@ -859,9 +859,9 @@
                 const BOLD_OFF = ESC + "E" + "\x00";
 
                 receiptText += INIT;
-                receiptText += ALIGN_CENTER + BOLD_ON + "COSMO STORE" + LF;
-                receiptText += BOLD_OFF + "City, PIN 123456, India" + LF;
-                receiptText += "Mob: +91 0000000000" + LF;
+                receiptText += ALIGN_CENTER + BOLD_ON + "sdf private limited" + LF;
+                receiptText += BOLD_OFF + "City - kolkata, PIN - 743355, India" + LF;
+                receiptText += "Mob: +91 8798153104" + LF;
                 receiptText += "--------------------------------" + LF; 
                 
                 receiptText += ALIGN_LEFT;
@@ -945,7 +945,7 @@
                 }
 
                 // Create QR Code ESC/POS Command Bytes
-                const qrData = "upi://pay?pa=yourupi@ybl&pn=CosmoStore&cu=INR";
+                const qrData = "upi://pay?pa=paytmqr6szv5j@ptys&pn=suraj molla&cu=INR";
                 const qrLen = qrData.length + 3;
                 const pL = qrLen & 0xFF;
                 const pH = (qrLen >> 8) & 0xFF;
@@ -966,7 +966,7 @@
                 qrBytesArray.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30); // Print QR
                 
                 // Final Footer Text
-                let footerText = "\nSCAN TO PAY VIA UPI\n--------------------------------\nTHANK YOU ! VISIT AGAIN\nGoods once sold cannot be returned\n\n\n\n";
+                let footerText = "\nSCAN TO PAY VIA UPI\n--------------------------------\nTHANK YOU ! VISIT AGAIN\nGoods once sold\n\n\n\n";
 
                 // Combine All Bytes Together
                 const encoder = new TextEncoder();
