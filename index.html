@@ -993,6 +993,21 @@
         };
 
         window.goToPage = (pageId) => {
+            // ==========================================
+            // NEW PASSWORD PROTECTION LOGIC (পাসওয়ার্ড লজিক)
+            // ==========================================
+            const ADMIN_PIN = "12345"; // <--- এখানে আপনি আপনার ইচ্ছামত পাসওয়ার্ড বসাতে পারেন।
+            const unlockedPages = ['page-home', 'page-sell', 'page-invoice'];
+
+            if (!unlockedPages.includes(pageId)) {
+                let enteredPin = prompt("এই পেজটি ওপেন করতে পাসওয়ার্ড দিন / Enter Admin Password:");
+                if (enteredPin !== ADMIN_PIN) {
+                    alert("ভুল পাসওয়ার্ড! / Incorrect Password! Access Denied.");
+                    return; // পাসওয়ার্ড ভুল হলে পেজ খুলবে না।
+                }
+            }
+            // ==========================================
+
             if(html5QrCode) { 
                 try { html5QrCode.stop().catch(e=>{}); } catch(e){} 
                 html5QrCode = null; 
@@ -1003,7 +1018,7 @@
             
             if(pageId === 'page-home') {
                 document.querySelectorAll('.foot-item')[0].classList.add('active');
-                // যখনই Home পেজে যাবে, তখন Add Form-এর ডাটা ক্লিয়ার হয়ে যাবে, যাতে Edit এর পর আবার নতুন কিছু অ্যাড করতে গেলে আগের ডাটা না থাকে।
+                // যখনই Home পেজে যাবে, তখন Add Form-এর ডাটা ক্লিয়ার হয়ে যাবে, যাতে Edit এর পর আবার নতুন কিছু অ্যাড করতে গেলে আগের ডাটা লাল না থাকে।
                 document.getElementById('edit-id').value = "";
                 document.getElementById('form-title').innerText = "Add New Product";
                 ['m-barcode','m-name','m-price','m-rate','m-stock','m-expiry','m-cat','m-img'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ""; });
@@ -1530,4 +1545,4 @@
 
     </script>
 </body>
-                </html>
+    </html>
