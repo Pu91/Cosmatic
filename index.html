@@ -83,7 +83,9 @@
         .stat-box {
             background: white; padding: 12px 5px; border-radius: 12px; text-align: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-bottom: 4px solid var(--primary-color);
+            transition: 0.3s; cursor: pointer;
         }
+        .stat-box:active { transform: scale(0.95); }
         .stat-box h4 { margin: 0; font-size: 11px; color: #777; text-transform: uppercase; }
         .stat-box div { font-size: 16px; font-weight: bold; color: var(--primary-color); margin-top: 5px; }
 
@@ -660,10 +662,20 @@
                     <button class="btn-print-table no-print" onclick="triggerPrint('print-table')" style="margin-bottom:0;"><i class="fas fa-print"></i> Print Reports</button>
                 </div>
                 
+                <!-- NEW: Updated Clickable Stats Row for Payment Breakdown -->
                 <div class="stats-row no-print">
-                    <div class="stat-box"><h4>Today</h4><div id="stat-today">0</div></div>
-                    <div class="stat-box"><h4>Yesterday</h4><div id="stat-yest">0</div></div>
-                    <div class="stat-box"><h4>Monthly</h4><div id="stat-month">0</div></div>
+                    <div class="stat-box" onclick="showPaymentBreakdown('Today')">
+                        <h4>Today</h4><div id="stat-today">0</div>
+                        <small style="color:#888; font-size:9px;">Click for breakdown</small>
+                    </div>
+                    <div class="stat-box" onclick="showPaymentBreakdown('Yesterday')">
+                        <h4>Yesterday</h4><div id="stat-yest">0</div>
+                        <small style="color:#888; font-size:9px;">Click for breakdown</small>
+                    </div>
+                    <div class="stat-box" onclick="showPaymentBreakdown('Monthly')">
+                        <h4>Monthly</h4><div id="stat-month">0</div>
+                        <small style="color:#888; font-size:9px;">Click for breakdown</small>
+                    </div>
                 </div>
 
                 <div class="graph-container no-print">
@@ -783,6 +795,13 @@
 
         let medicines = []; let cart =[]; let salesList = []; let allSalesForExport =[];
         let html5QrCode = null; let myChart = null; let tempSelectedMed = null; let selectedMedForUpdate = null;
+
+        // NEW: Payment Stats Object for Breakdown Tracking
+        let paymentStats = {
+            Today: { cash: 0, online: 0, total: 0 },
+            Yesterday: { cash: 0, online: 0, total: 0 },
+            Monthly: { cash: 0, online: 0, total: 0 }
+        };
 
         // USB PRINTING VARIABLES (To hold connection)
         let printDevice = null;
@@ -1343,34 +1362,70 @@
             document.getElementById('inv-items-render').innerHTML = html;
         }
 
-        // --- FETCH REALTIME DATA ---
+        // --- FETCH REALTIME DATA & CASH/ONLINE BREAKDOWN ---
         async function fetchDashboardStats() {
             const snap = await getDocs(collection(db, "sales"));
             let today = new Date().toISOString().split('T')[0];
             let y = new Date(); y.setDate(y.getDate() - 1);
             let yesterday = y.toISOString().split('T')[0];
             let currentMonth = today.slice(0, 7);
-            let todayTotal = 0, yestTotal = 0, monthTotal = 0;
+            
+            // Reset Payment Stats
+            paymentStats = {
+                Today: { cash: 0, online: 0, total: 0 },
+                Yesterday: { cash: 0, online: 0, total: 0 },
+                Monthly: { cash: 0, online: 0, total: 0 }
+            };
             allSalesForExport =[];
 
             snap.forEach(doc => {
                 const s = doc.data(); allSalesForExport.push(s);
-                if(s.date === today) todayTotal += s.total;
-                if(s.date === yesterday) yestTotal += s.total;
-                if(s.date.startsWith(currentMonth)) monthTotal += s.total;
+                
+                // Track Payment Mode
+                let isOnline = (s.payment === 'Online');
+                
+                if(s.date === today) {
+                    paymentStats.Today.total += s.total;
+                    if(isOnline) paymentStats.Today.online += s.total; else paymentStats.Today.cash += s.total;
+                }
+                if(s.date === yesterday) {
+                    paymentStats.Yesterday.total += s.total;
+                    if(isOnline) paymentStats.Yesterday.online += s.total; else paymentStats.Yesterday.cash += s.total;
+                }
+                if(s.date.startsWith(currentMonth)) {
+                    paymentStats.Monthly.total += s.total;
+                    if(isOnline) paymentStats.Monthly.online += s.total; else paymentStats.Monthly.cash += s.total;
+                }
             });
 
-            document.getElementById('stat-today').innerText = todayTotal.toFixed(2);
-            document.getElementById('stat-yest').innerText = yestTotal.toFixed(2);
-            document.getElementById('stat-month').innerText = monthTotal.toFixed(2);
+            document.getElementById('stat-today').innerText = paymentStats.Today.total.toFixed(2);
+            document.getElementById('stat-yest').innerText = paymentStats.Yesterday.total.toFixed(2);
+            document.getElementById('stat-month').innerText = paymentStats.Monthly.total.toFixed(2);
             
             const ctx = document.getElementById('salesChart').getContext('2d');
             if(myChart) myChart.destroy();
             myChart = new Chart(ctx, {
-                type: 'bar', data: { labels:['Yesterday', 'Today', 'Monthly'], datasets: [{ label: 'Sales', data:[yestTotal, todayTotal, monthTotal], backgroundColor:['#e74c3c', '#d63384', '#3498db'], borderRadius: 5 }] },
+                type: 'bar', data: { labels:['Yesterday', 'Today', 'Monthly'], datasets: [{ label: 'Sales', data:[paymentStats.Yesterday.total, paymentStats.Today.total, paymentStats.Monthly.total], backgroundColor:['#e74c3c', '#d63384', '#3498db'], borderRadius: 5 }] },
                 options: { responsive: true, plugins: { legend: { display: false } } }
             });
         }
+
+        // NEW: Show Payment Mode Breakdown Modal
+        window.showPaymentBreakdown = (type) => {
+            const stats = paymentStats[type];
+            let html = `
+                <h3 style="color:var(--primary-color); text-align:center; margin-top:0;">${type} Sales Breakdown</h3>
+                <div style="background:#f9f9f9; padding:15px; border-radius:10px; margin-top:15px;">
+                    <table style="width:100%; text-align:left; font-size:16px;">
+                        <tr><td style="padding:10px; border-bottom:1px solid #ddd;"><b><i class="fas fa-money-bill-wave"></i> Cash (Offline) :</b></td><td style="padding:10px; border-bottom:1px solid #ddd; text-align:right; color:var(--success); font-weight:bold;">₹${stats.cash.toFixed(2)}</td></tr>
+                        <tr><td style="padding:10px; border-bottom:1px solid #ddd;"><b><i class="fas fa-mobile-alt"></i> Online (UPI) :</b></td><td style="padding:10px; border-bottom:1px solid #ddd; text-align:right; color:var(--info); font-weight:bold;">₹${stats.online.toFixed(2)}</td></tr>
+                        <tr><td style="padding:10px; font-size:18px;"><b>Total Sale :</b></td><td style="padding:10px; text-align:right; font-size:18px; color:var(--primary-color); font-weight:bold;">₹${stats.total.toFixed(2)}</td></tr>
+                    </table>
+                </div>
+            `;
+            document.getElementById('modal-data-render').innerHTML = html; 
+            document.getElementById('detailModal').style.display = 'flex';
+        };
 
         onSnapshot(collection(db, "medicines"), (snapshot) => {
             medicines =[]; let mainHtml = ""; let expiredHtml = ""; let lowHtml = ""; let noHtml = ""; let looseHtml = "";
@@ -1545,4 +1600,4 @@
 
     </script>
 </body>
-    </html>
+</html>
