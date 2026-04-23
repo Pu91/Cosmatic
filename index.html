@@ -26,6 +26,8 @@
             --info: #3498db;
             --warning: #f39c12;
             --success: #27ae60;
+            --purple: #9b59b6;
+            --teal: #16a085;
         }
 
         body {
@@ -76,6 +78,8 @@
         .card-expired { border-left: 5px solid var(--danger); }
         .card-low { border-left: 5px solid var(--warning); }
         .card-no { border-left: 5px solid #555; }
+        .card-discount { border-left: 5px solid var(--purple); }
+        .card-stockval { border-left: 5px solid var(--teal); }
 
         .stats-row {
             display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 20px;
@@ -247,19 +251,17 @@
         }
 
         /* =========================================================
-           ADVANCED PRINTING LOGIC (ISOLATING INVOICE, BARCODE, TABLE)
+           ADVANCED PRINTING LOGIC
            ========================================================= */
         @media print {
-            @page { margin: 0; } /* Remove default header/footer margins */
+            @page { margin: 0; }
             body { background: white !important; margin: 0; padding: 0; color: #000; }
             header, footer, .no-print, button, input, select { display: none !important; }
             
-            /* IMPORTANT: Hide all inactive pages to prevent extra blank pages */
             .section-page:not(.active-page) { display: none !important; }
             
             body * { visibility: hidden; }
 
-            /* 1. PRINT INVOICE MODE */
             body.print-invoice #page-invoice,
             body.print-invoice #page-invoice *,
             body.print-invoice .invoice-wrapper,
@@ -269,7 +271,6 @@
                 box-shadow: none; margin: 0; padding: 5px; border: none; 
             }
             
-            /* 2. PRINT BARCODE MODE */
             body.print-barcode #barcode-preview-area,
             body.print-barcode #barcode-preview-area * { visibility: visible; }
             body.print-barcode #barcode-preview-area { 
@@ -277,14 +278,13 @@
                 display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10mm; 
             }
 
-            /* 3. PRINT TABLE MODE (Inventory, Low Stock, Reports etc) */
             body.print-table .active-page, 
             body.print-table .active-page * { visibility: visible; }
             body.print-table .active-page { position: absolute; left: 0; top: 0; width: 100%; padding: 10px; }
-            body.print-table .action-btns-cell { display: none !important; } /* Hide action column */
+            body.print-table .action-btns-cell { display: none !important; }
             body.print-table .med-list-container { box-shadow: none; border: 1px solid #ccc; border-radius: 0; }
             body.print-table .med-header, body.print-table .med-row {
-                grid-template-columns: 60px 2fr 1fr 1fr !important; /* Adjust columns for A4 without action buttons */
+                grid-template-columns: 60px 2fr 1fr 1fr !important;
                 min-width: 100%; border-bottom: 1px solid #000;
             }
         }
@@ -361,7 +361,6 @@
                         <h3>View Stock</h3>
                         <p id="total-med-count">Total: 0</p>
                     </div>
-                    <!-- STOCK UPDATE CARD -->
                     <div class="menu-card" onclick="goToPage('page-update-stock')">
                         <i class="fas fa-pen-to-square" style="color:var(--success)"></i>
                         <h3 style="color:var(--success)">Update Stock</h3>
@@ -372,25 +371,21 @@
                         <h3>Sell Page</h3>
                         <p>New Bill</p>
                     </div>
-                    <!-- Barcode Gen Card -->
                     <div class="menu-card" onclick="goToPage('page-barcode-gen')">
                         <i class="fas fa-barcode"></i>
                         <h3>Generate Barcode</h3>
                         <p>Print Tags</p>
                     </div>
-                    <!-- Website Card -->
                     <div class="menu-card" onclick="window.open('https://zesty-brioche-6ec6cb.netlify.app', '_blank')">
                         <i class="fas fa-globe" style="color: #3498db;"></i>
                         <h3>Visit Website</h3>
                         <p>Open Link</p>
                     </div>
-                    <!-- NEW: ADD LOOSE PRODUCT CARD -->
                     <div class="menu-card" onclick="goToPage('page-add-loose')">
                         <i class="fas fa-balance-scale" style="color: #e67e22;"></i>
                         <h3 style="color: #e67e22;">Add Loose Product</h3>
                         <p>Kg / Gram Items</p>
                     </div>
-                    <!-- NEW: VIEW LOOSE STOCK CARD -->
                     <div class="menu-card" onclick="goToPage('page-view-loose')">
                         <i class="fas fa-list" style="color: #8e44ad;"></i>
                         <h3 style="color: #8e44ad;">View Loose Stock</h3>
@@ -418,6 +413,18 @@
                         <i class="fas fa-chart-line"></i>
                         <h3>Reports</h3>
                         <p>Sales Data</p>
+                    </div>
+                    <!-- NEW: DISCOUNT CARD -->
+                    <div class="menu-card card-discount" onclick="showDiscountBreakdown()">
+                        <i class="fas fa-tags" style="color:var(--purple)"></i>
+                        <h3 style="color:var(--purple)">Discount Given</h3>
+                        <p>View Breakdown</p>
+                    </div>
+                    <!-- NEW: TOTAL SHOP STOCK VALUE CARD -->
+                    <div class="menu-card card-stockval" onclick="goToPage('page-shop-stock')">
+                        <i class="fas fa-boxes" style="color:var(--teal)"></i>
+                        <h3 style="color:var(--teal)">Total Stock Value</h3>
+                        <p id="dash-total-stock-val" style="font-weight:bold; color:var(--teal);">₹0.00</p>
                     </div>
                 </div>
             </section>
@@ -482,7 +489,6 @@
                         </div>
                         <div style="flex:1.5;">
                             <span style="font-size:12px; color:#888;">Add Quantity:</span>
-                            <!-- step="any" allow decimals for loose stock -->
                             <input type="number" id="u-new-qty" value="0" step="any" style="margin:5px 0; padding:8px;">
                         </div>
                     </div>
@@ -550,13 +556,11 @@
                     <div id="reader-sell"></div>
                     <button onclick="startScanner('sell-barcode', true)" style="background:#444; color:white; border:none; padding:12px; border-radius:8px; width:100%; margin-bottom:10px; font-weight:bold;"><i class="fas fa-barcode"></i> SCAN PRODUCT</button>
                     
-                    <!-- GENERAL PRODUCT SEARCH -->
                     <div style="position:relative;">
                         <input type="text" id="sell-search" placeholder="Manual Search Product..." onkeyup="searchToSell()">
                         <div id="sell-popup" class="search-popup"></div>
                     </div>
 
-                    <!-- NEW: LOOSE PRODUCT SEARCH ONLY -->
                     <div style="position:relative; margin-top: 10px;">
                         <input type="text" id="sell-loose-search" placeholder="Search Loose Product (Kg/Gm)..." onkeyup="searchLooseToSell()" style="border: 1px solid #e67e22;">
                         <div id="sell-loose-popup" class="search-popup"></div>
@@ -568,9 +572,7 @@
                 <div id="qty-box" class="qty-selection-box">
                     <h4 id="selected-med-name" style="margin:0 0 10px 0; color:var(--primary-color);">Product Name</h4>
                     <div style="display:flex; gap:10px; align-items:center;">
-                        <!-- step="any" allowed here so loose products can be sold in fractions -->
                         <input type="number" id="input-qty" placeholder="Qty" min="0" step="any" style="margin:0; flex:1;">
-                        <!-- GM / KG Dropdown (Only shows for loose products) -->
                         <select id="loose-unit" style="display:none; margin:0; width: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
                             <option value="gm">Gm</option>
                             <option value="kg">Kg</option>
@@ -589,7 +591,6 @@
                     <hr>
                     <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span id="subtotal">0</span></div>
                     
-                    <!-- FLAT DISCOUNT ADDED HERE ALONGSIDE PERCENTAGE -->
                     <div style="display:flex; gap:10px; margin-top: 10px;">
                         <input type="number" id="discount" placeholder="Discount (%)" value="0" oninput="calculateTotal()" style="margin:0;">
                         <input type="number" id="discount-amt" placeholder="Discount (₹ Amt)" value="0" oninput="calculateTotal()" style="margin:0; border-color: #3498db;">
@@ -607,7 +608,6 @@
             <section id="page-invoice" class="section-page">
                 <div class="no-print" style="margin-bottom:15px; display:flex; gap:10px; justify-content:center;">
                     <button onclick="goToPage('page-sell')" style="background:#444; color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-arrow-left"></i> Back</button>
-                    <!-- USB OTG PRINT BUTTON -->
                     <button onclick="printThermalReceipt()" style="background:var(--primary-color); color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-print"></i> Print Receipt</button>
                 </div>
 
@@ -638,7 +638,6 @@
                     <div class="inv-sep"></div>
                     <div class="inv-totals">
                         Sub Total: Rs.<span id="inv-sub-display">0.00</span><br>
-                        <!-- INVOICE UPDATED TO SHOW FLAT DISCOUNT AS WELL -->
                         Discount: <span id="inv-disc-percent">0</span>% | Rs.<span id="inv-disc-amt">0.00</span><br>
                         <div class="inv-sep" style="margin: 5px 0 5px auto; width: 60%;"></div>
                         <b style="font-size: 15px;">TOTAL: Rs.<span id="inv-total-display">0.00</span></b>
@@ -662,7 +661,6 @@
                     <button class="btn-print-table no-print" onclick="triggerPrint('print-table')" style="margin-bottom:0;"><i class="fas fa-print"></i> Print Reports</button>
                 </div>
                 
-                <!-- NEW: Updated Clickable Stats Row for Payment Breakdown -->
                 <div class="stats-row no-print">
                     <div class="stat-box" onclick="showPaymentBreakdown('Today')">
                         <h4>Today</h4><div id="stat-today">0</div>
@@ -748,6 +746,25 @@
                     <div id="nostock-list"></div>
                 </div>
             </section>
+
+            <!-- NEW: SHOP STOCK VALUE PAGE -->
+            <section id="page-shop-stock" class="section-page">
+                <button onclick="goToPage('page-home')" class="no-print" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2>Shop Stock Breakdown</h2>
+                    <button class="btn-print-table no-print" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
+                </div>
+                <div class="form-group" style="background:var(--teal); color:white; text-align:center; padding: 15px;">
+                    <h3 style="margin:0;">Total Estimated Sale Value: ₹<span id="total-stock-rupees">0.00</span></h3>
+                </div>
+                <input type="text" id="search-shop-stock" class="no-print" placeholder="Search product to see stock value..." onkeyup="filterShopStock()">
+                <div class="med-list-container">
+                    <div class="med-header" style="background:#e8f8f5;">
+                        <div>Image</div><div>Name</div><div>Stock</div><div>Rate</div><div>Total Value</div>
+                    </div>
+                    <div id="shop-stock-list"></div>
+                </div>
+            </section>
         </main>
 
         <!-- FOOTER -->
@@ -791,19 +808,20 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const auth = getAuth(app); // INITIALIZE AUTH
+        const auth = getAuth(app); 
 
         let medicines = []; let cart =[]; let salesList = []; let allSalesForExport =[];
         let html5QrCode = null; let myChart = null; let tempSelectedMed = null; let selectedMedForUpdate = null;
 
-        // NEW: Payment Stats Object for Breakdown Tracking
         let paymentStats = {
             Today: { cash: 0, online: 0, total: 0 },
             Yesterday: { cash: 0, online: 0, total: 0 },
             Monthly: { cash: 0, online: 0, total: 0 }
         };
 
-        // USB PRINTING VARIABLES (To hold connection)
+        // NEW: Tracker for Discount Stats
+        let discountStats = { Today: 0, Yesterday: 0, Monthly: 0 };
+
         let printDevice = null;
         let printInterface = null;
         let printEndpoint = null;
@@ -811,45 +829,35 @@
         const playSuccess = () => { try { document.getElementById('sound-success').play(); } catch(e){} };
         const playError = () => { try { document.getElementById('sound-error').play(); } catch(e){} };
 
-        // --- AUTHENTICATION LOGIC ---
         window.loginUser = async () => {
             const email = document.getElementById('login-email').value;
             const pass = document.getElementById('login-password').value;
             if(!email || !pass) return alert("Please enter email and password!");
-            try {
-                await signInWithEmailAndPassword(auth, email, pass);
-                // login success, auth state change will handle ui
-            } catch (err) {
-                alert("Login Failed: " + err.message);
-            }
+            try { await signInWithEmailAndPassword(auth, email, pass); } 
+            catch (err) { alert("Login Failed: " + err.message); }
         };
 
         window.logoutUser = async () => {
-            if(confirm("Are you sure you want to logout?")) {
-                await signOut(auth);
-            }
+            if(confirm("Are you sure you want to logout?")) { await signOut(auth); }
         };
 
         onAuthStateChanged(auth, (user) => {
             if(user) {
-                // LOGGED IN: Hide Login Page, Show Main App
                 document.getElementById('login-container').style.display = 'none';
                 document.getElementById('app-content').style.display = 'block';
+                fetchDashboardStats(); // Load stats on login
             } else {
-                // LOGGED OUT: Show Login Page, Hide Main App
                 document.getElementById('login-container').style.display = 'flex';
                 document.getElementById('app-content').style.display = 'none';
             }
         });
 
-        // --- MASTER PRINT FUNCTION ---
         window.triggerPrint = (modeClass) => {
             document.body.classList.add(modeClass);
             window.print();
             setTimeout(() => { document.body.classList.remove(modeClass); }, 500);
         };
 
-        // --- NEW: USB OTG THERMAL PRINTING LOGIC (WebUSB API + QR Code + One Time Connect) ---
         window.printThermalReceipt = async () => {
             try {
                 if (!navigator.usb) {
@@ -858,7 +866,6 @@
                     return;
                 }
 
-                // Gather data from the page
                 const invNo = document.getElementById('inv-no-display').innerText;
                 const date = document.getElementById('inv-date-display').innerText;
                 const custName = document.getElementById('inv-cust-name').innerText;
@@ -906,9 +913,7 @@
                         let qty = cols[1].innerText.padEnd(6, " ");
                         let amt = cols[2].innerText.padStart(8, " ");
                         receiptText += name + "  " + qty + "  " + amt + LF;
-                        if (subDetails) {
-                            receiptText += "  " + subDetails + LF;
-                        }
+                        if (subDetails) { receiptText += "  " + subDetails + LF; }
                     }
                 });
 
@@ -921,20 +926,13 @@
                 receiptText += ALIGN_CENTER + BOLD_ON + "TOTAL: Rs." + total + LF + BOLD_OFF;
                 receiptText += "--------------------------------" + LF;
 
-                // CONNECT TO USB DEVICE ONLY ONCE
                 if (!printDevice) {
                     let devices = await navigator.usb.getDevices();
-                    if (devices.length > 0) {
-                        printDevice = devices[0];
-                    } else {
-                        printDevice = await navigator.usb.requestDevice({ filters: [] });
-                    }
+                    if (devices.length > 0) { printDevice = devices[0]; } 
+                    else { printDevice = await navigator.usb.requestDevice({ filters: [] }); }
                     
                     await printDevice.open();
-                    
-                    if (printDevice.configuration === null) {
-                        await printDevice.selectConfiguration(1);
-                    }
+                    if (printDevice.configuration === null) { await printDevice.selectConfiguration(1); }
                     
                     let interfaceNumber = null;
                     let endpointNumber = null;
@@ -954,8 +952,7 @@
                     }
                     
                     if (interfaceNumber === null || endpointNumber === null) {
-                        printDevice = null;
-                        throw new Error("USB Printer-এর সঠিক পোর্ট পাওয়া যায়নি!");
+                        printDevice = null; throw new Error("USB Printer-এর সঠিক পোর্ট পাওয়া যায়নি!");
                     }
                     
                     await printDevice.claimInterface(interfaceNumber);
@@ -963,31 +960,24 @@
                     printEndpoint = endpointNumber;
                 }
 
-                // Create QR Code ESC/POS Command Bytes
                 const qrData = "upi://pay?pa=paytmqr6szv5j@ptys&pn=suraj molla&cu=INR";
                 const qrLen = qrData.length + 3;
                 const pL = qrLen & 0xFF;
                 const pH = (qrLen >> 8) & 0xFF;
                 
-                // ESC/POS commands to print QR Code
                 const qrBytesArray = [
-                    0x1B, 0x61, 0x01, // Center align
-                    0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00, // Model 2
-                    0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06,       // Size (6)
-                    0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x31,       // Error Correction (M=49)
-                    0x1D, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30            // Store Data Header
+                    0x1B, 0x61, 0x01,
+                    0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00,
+                    0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06,       
+                    0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x31,       
+                    0x1D, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30            
                 ];
                 
-                for(let i=0; i<qrData.length; i++) {
-                    qrBytesArray.push(qrData.charCodeAt(i));
-                }
+                for(let i=0; i<qrData.length; i++) { qrBytesArray.push(qrData.charCodeAt(i)); }
+                qrBytesArray.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30); 
                 
-                qrBytesArray.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30); // Print QR
-                
-                // Final Footer Text
                 let footerText = "\nSCAN TO PAY VIA UPI\n--------------------------------\nTHANK YOU ! VISIT AGAIN\nGoods once sold\n\n\n\n";
 
-                // Combine All Bytes Together
                 const encoder = new TextEncoder();
                 const textBytes1 = encoder.encode(receiptText);
                 const qrBytes = new Uint8Array(qrBytesArray);
@@ -998,46 +988,34 @@
                 finalData.set(qrBytes, textBytes1.length);
                 finalData.set(textBytes2, textBytes1.length + qrBytes.length);
                 
-                // Send Data to the Printer Endpoint
                 await printDevice.transferOut(printEndpoint, finalData);
-                
-                // We keep the device open so the next print click works instantly.
-
             } catch (error) {
                 console.error(error);
-                printDevice = null; // Reset connection status if it fails
+                printDevice = null;
                 alert("USB (OTG) প্রিন্টার কানেক্ট করা সম্ভব হয়নি! ক্যাবল চেক করুন। \n(" + error.message + ")\n\nবিকল্প হিসেবে নরমাল সিস্টেম প্রিন্ট ওপেন করা হচ্ছে...");
                 triggerPrint('print-invoice');
             }
         };
 
         window.goToPage = (pageId) => {
-            // ==========================================
-            // NEW PASSWORD PROTECTION LOGIC (পাসওয়ার্ড লজিক)
-            // ==========================================
-            const ADMIN_PIN = "12345"; // <--- এখানে আপনি আপনার ইচ্ছামত পাসওয়ার্ড বসাতে পারেন।
+            const ADMIN_PIN = "12345"; 
             const unlockedPages = ['page-home', 'page-sell', 'page-invoice'];
 
             if (!unlockedPages.includes(pageId)) {
                 let enteredPin = prompt("এই পেজটি ওপেন করতে পাসওয়ার্ড দিন / Enter Admin Password:");
                 if (enteredPin !== ADMIN_PIN) {
                     alert("ভুল পাসওয়ার্ড! / Incorrect Password! Access Denied.");
-                    return; // পাসওয়ার্ড ভুল হলে পেজ খুলবে না।
+                    return; 
                 }
             }
-            // ==========================================
 
-            if(html5QrCode) { 
-                try { html5QrCode.stop().catch(e=>{}); } catch(e){} 
-                html5QrCode = null; 
-            } 
+            if(html5QrCode) { try { html5QrCode.stop().catch(e=>{}); } catch(e){} html5QrCode = null; } 
             document.querySelectorAll('.section-page').forEach(p => p.classList.remove('active-page'));
             document.getElementById(pageId).classList.add('active-page');
             document.querySelectorAll('.foot-item').forEach(i => i.classList.remove('active'));
             
             if(pageId === 'page-home') {
                 document.querySelectorAll('.foot-item')[0].classList.add('active');
-                // যখনই Home পেজে যাবে, তখন Add Form-এর ডাটা ক্লিয়ার হয়ে যাবে, যাতে Edit এর পর আবার নতুন কিছু অ্যাড করতে গেলে আগের ডাটা লাল না থাকে।
                 document.getElementById('edit-id').value = "";
                 document.getElementById('form-title').innerText = "Add New Product";
                 ['m-barcode','m-name','m-price','m-rate','m-stock','m-expiry','m-cat','m-img'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ""; });
@@ -1059,7 +1037,6 @@
             }
         };
 
-        // --- BARCODE PREVIEW LOGIC ---
         window.prepareBarcodePrint = () => {
             const text = document.getElementById('gen-barcode-text').value;
             const qty = parseInt(document.getElementById('gen-barcode-qty').value);
@@ -1080,7 +1057,6 @@
             document.getElementById('btn-actual-print').style.display = "block";
         };
 
-        // --- EXPORT LOGIC ---
         window.exportStockToExcel = () => {
             const data = medicines.map(m => ({ 'Product Name': m.name, 'Price': m.price, 'Stock': m.stock, 'Barcode': m.barcode || 'N/A', 'Expiry Date': m.expiryDate || 'N/A', 'Category': m.category || 'N/A' }));
             downloadXL(data, "Inventory_Report");
@@ -1125,7 +1101,6 @@
             XLSX.writeFile(workbook, `${filename}_${new Date().toLocaleDateString()}.xlsx`);
         }
 
-        // --- SCANNER LOGIC ---
         window.startScanner = (inputId, autoSell = false, isUpdate = false) => {
             let readerId = autoSell ? "reader-sell" : (isUpdate ? "reader-update" : "reader");
             if(html5QrCode) { try { html5QrCode.stop().catch(e=>{}); } catch(e){} }
@@ -1144,7 +1119,6 @@
             ).catch(err => console.log(err));
         };
 
-        // --- UPDATE STOCK LOGIC ---
         function handleBarcodeUpdate(barcode) {
             const med = medicines.find(m => m.barcode === barcode);
             if(med) { 
@@ -1187,7 +1161,7 @@
 
         window.saveStockQuick = async () => {
             if(!selectedMedForUpdate) return;
-            const addQty = parseFloat(document.getElementById('u-new-qty').value); // parseFloat for loose items
+            const addQty = parseFloat(document.getElementById('u-new-qty').value);
             if(isNaN(addQty)) return alert("Enter valid quantity");
             const newTotalStock = selectedMedForUpdate.stock + addQty;
             await updateDoc(doc(db, "medicines", selectedMedForUpdate.id), { stock: newTotalStock });
@@ -1196,14 +1170,12 @@
             document.getElementById('stock-search-input').value = "";
         };
 
-        // --- SELL LOGIC ---
         function handleBarcodeSell(barcode) {
             const med = medicines.find(m => m.barcode === barcode);
             if(med) { playSuccess(); selectMedForQty(med); } else { playError(); alert("Product not found!"); }
         }
         window.handleBarcodeSell = handleBarcodeSell;
 
-        // GENERAL SEARCH (All Products)
         window.searchToSell = () => {
             const term = document.getElementById('sell-search').value.toLowerCase();
             const popup = document.getElementById('sell-popup');
@@ -1217,12 +1189,10 @@
             });
         };
 
-        // NEW: LOOSE PRODUCT SEARCH ONLY
         window.searchLooseToSell = () => {
             const term = document.getElementById('sell-loose-search').value.toLowerCase();
             const popup = document.getElementById('sell-loose-popup');
             popup.innerHTML = ""; if(!term) return;
-            // Filter strictly for loose products matching the search text
             const filtered = medicines.filter(m => m.isLoose && m.name.toLowerCase().includes(term));
             filtered.forEach(m => {
                 const div = document.createElement('div'); div.className = "search-item";
@@ -1246,12 +1216,11 @@
             document.getElementById('selected-med-name').innerText = med.name + " (MRP: ₹" + med.price + ", Rate: ₹" + sellRate + (med.isLoose ? "/Kg" : "") + ")";
             document.getElementById('qty-box').style.display = "block";
             
-            // GRAM / KG LOGIC HERE
             if(med.isLoose) {
                 document.getElementById('loose-unit').style.display = "inline-block";
-                document.getElementById('loose-unit').value = "gm"; // Default to Gram
+                document.getElementById('loose-unit').value = "gm"; 
                 document.getElementById('input-qty').placeholder = "Enter Qty (Gm/Kg)";
-                document.getElementById('input-qty').value = ""; // Let user type amount like 300
+                document.getElementById('input-qty').value = ""; 
             } else {
                 document.getElementById('loose-unit').style.display = "none";
                 document.getElementById('input-qty').placeholder = "Qty";
@@ -1269,12 +1238,9 @@
             let qty = parseFloat(document.getElementById('input-qty').value);
             if(!qty || qty <= 0) return alert("Enter valid quantity!");
             
-            // GRAM TO KG CONVERSION LOGIC
             if(tempSelectedMed.isLoose) {
                 const unit = document.getElementById('loose-unit').value;
-                if (unit === 'gm') {
-                    qty = qty / 1000; // Convert Gram to Kg internally for pricing
-                }
+                if (unit === 'gm') { qty = qty / 1000; }
             }
 
             if(qty > tempSelectedMed.stock) return alert("Not enough stock! Available: " + tempSelectedMed.stock + (tempSelectedMed.isLoose ? " Kg" : " pcs"));
@@ -1290,7 +1256,6 @@
             cart.forEach((item, index) => {
                 let sellRate = item.rate || item.price;
                 let total = sellRate * item.qty; subtotal += total;
-                // SHOW GRAM OR KG BEAUTIFULLY IN CART
                 let qtyText = item.isLoose ? (item.qty < 1 ? (item.qty * 1000) + " Gm" : item.qty + " Kg") : item.qty;
                 let priceText = item.isLoose ? sellRate + "/Kg" : sellRate;
                 
@@ -1315,13 +1280,23 @@
             const custPhone = document.getElementById('cust-phone').value || "N/A";
             const sub = parseFloat(document.getElementById('subtotal').innerText) || 0;
             const discPercent = parseFloat(document.getElementById('discount').value) || 0;
-            const discAmt = parseFloat(document.getElementById('discount-amt').value) || 0; // NEW: Flat Discount Capture
+            const discAmt = parseFloat(document.getElementById('discount-amt').value) || 0; 
             const grand = parseFloat(document.getElementById('grand-total').innerText) || 0;
             const today = new Date().toISOString().split('T')[0];
             const invNo = Math.floor(100000 + Math.random() * 900000); 
 
-            // Include discountAmt inside sale object so it reflects accurately
-            const saleObj = { customerName: custName, customerPhone: custPhone, items: [...cart], subtotal: sub, discount: discPercent, discountAmt: discAmt, total: grand, payment: document.getElementById('pay-mode').value, date: today, invNo: invNo };
+            // NEW: Calculate Absolute Total Discount Value in Rupees for Database
+            const discFromPercentVal = (sub * discPercent) / 100;
+            const totalDiscountInRupees = discFromPercentVal + discAmt;
+
+            // NEW: Added totalDiscountValue to saleObj
+            const saleObj = { 
+                customerName: custName, customerPhone: custPhone, items: [...cart], 
+                subtotal: sub, discount: discPercent, discountAmt: discAmt, 
+                totalDiscountValue: totalDiscountInRupees, // Save total discount amount to firebase
+                total: grand, payment: document.getElementById('pay-mode').value, 
+                date: today, invNo: invNo 
+            };
 
             renderInvoice(saleObj);
             document.getElementById('customerModal').style.display = 'none';
@@ -1344,7 +1319,7 @@
             document.getElementById('inv-sub-display').innerText = sale.subtotal.toFixed(2);
             document.getElementById('inv-total-display').innerText = sale.total.toFixed(2);
             document.getElementById('inv-disc-percent').innerText = sale.discount;
-            document.getElementById('inv-disc-amt').innerText = (sale.discountAmt || 0).toFixed(2); // SHOW FLAT DISCOUNT IN BILL
+            document.getElementById('inv-disc-amt').innerText = (sale.discountAmt || 0).toFixed(2); 
 
             let html = "";
             sale.items.forEach((item) => { 
@@ -1362,7 +1337,6 @@
             document.getElementById('inv-items-render').innerHTML = html;
         }
 
-        // --- FETCH REALTIME DATA & CASH/ONLINE BREAKDOWN ---
         async function fetchDashboardStats() {
             const snap = await getDocs(collection(db, "sales"));
             let today = new Date().toISOString().split('T')[0];
@@ -1370,30 +1344,35 @@
             let yesterday = y.toISOString().split('T')[0];
             let currentMonth = today.slice(0, 7);
             
-            // Reset Payment Stats
             paymentStats = {
                 Today: { cash: 0, online: 0, total: 0 },
                 Yesterday: { cash: 0, online: 0, total: 0 },
                 Monthly: { cash: 0, online: 0, total: 0 }
             };
+            
+            // NEW: Reset Discount Stats
+            discountStats = { Today: 0, Yesterday: 0, Monthly: 0 };
             allSalesForExport =[];
 
             snap.forEach(doc => {
                 const s = doc.data(); allSalesForExport.push(s);
                 
-                // Track Payment Mode
                 let isOnline = (s.payment === 'Online');
+                let discVal = s.totalDiscountValue || 0; // Fallback if older data doesn't have this
                 
                 if(s.date === today) {
                     paymentStats.Today.total += s.total;
+                    discountStats.Today += discVal; // Record today's discount
                     if(isOnline) paymentStats.Today.online += s.total; else paymentStats.Today.cash += s.total;
                 }
                 if(s.date === yesterday) {
                     paymentStats.Yesterday.total += s.total;
+                    discountStats.Yesterday += discVal; // Record yesterday's discount
                     if(isOnline) paymentStats.Yesterday.online += s.total; else paymentStats.Yesterday.cash += s.total;
                 }
                 if(s.date.startsWith(currentMonth)) {
                     paymentStats.Monthly.total += s.total;
+                    discountStats.Monthly += discVal; // Record monthly discount
                     if(isOnline) paymentStats.Monthly.online += s.total; else paymentStats.Monthly.cash += s.total;
                 }
             });
@@ -1410,7 +1389,6 @@
             });
         }
 
-        // NEW: Show Payment Mode Breakdown Modal
         window.showPaymentBreakdown = (type) => {
             const stats = paymentStats[type];
             let html = `
@@ -1427,9 +1405,30 @@
             document.getElementById('detailModal').style.display = 'flex';
         };
 
+        // NEW: Function to Show Discount Breakdown in Modal
+        window.showDiscountBreakdown = () => {
+            let html = `
+                <h3 style="color:var(--purple); text-align:center; margin-top:0;">Discount Given Overview</h3>
+                <div style="background:#f9f9f9; padding:15px; border-radius:10px; margin-top:15px;">
+                    <table style="width:100%; text-align:left; font-size:16px;">
+                        <tr><td style="padding:10px; border-bottom:1px solid #ddd;"><b>Today :</b></td><td style="padding:10px; border-bottom:1px solid #ddd; text-align:right; color:var(--purple); font-weight:bold;">₹${discountStats.Today.toFixed(2)}</td></tr>
+                        <tr><td style="padding:10px; border-bottom:1px solid #ddd;"><b>Yesterday :</b></td><td style="padding:10px; border-bottom:1px solid #ddd; text-align:right; color:var(--purple); font-weight:bold;">₹${discountStats.Yesterday.toFixed(2)}</td></tr>
+                        <tr><td style="padding:10px; font-size:18px;"><b>Monthly :</b></td><td style="padding:10px; text-align:right; font-size:18px; color:var(--purple); font-weight:bold;">₹${discountStats.Monthly.toFixed(2)}</td></tr>
+                    </table>
+                </div>
+            `;
+            document.getElementById('modal-data-render').innerHTML = html;
+            document.getElementById('detailModal').style.display = 'flex';
+        };
+
         onSnapshot(collection(db, "medicines"), (snapshot) => {
-            medicines =[]; let mainHtml = ""; let expiredHtml = ""; let lowHtml = ""; let noHtml = ""; let looseHtml = "";
+            medicines =[]; 
+            let mainHtml = ""; let expiredHtml = ""; let lowHtml = ""; let noHtml = ""; let looseHtml = "";
             let expiredCount = 0; let lowCount = 0; let noCount = 0; let todayStr = new Date().toISOString().split('T')[0];
+            
+            // NEW: Variables for Shop Stock Calculation
+            let totalShopStockValue = 0;
+            let shopStockHtml = "";
 
             snapshot.forEach(doc => {
                 let m = doc.data(); m.id = doc.id; medicines.push(m);
@@ -1447,15 +1446,28 @@
                         </div>
                     </div>`;
                 
-                // Add to main stock view
                 mainHtml += rowHtml;
-
-                // Add to loose stock view if it's a loose product
                 if(m.isLoose) { looseHtml += rowHtml; }
 
                 if(m.expiryDate && m.expiryDate <= todayStr) { expiredCount++; expiredHtml += `<div class="med-row"><img src="${m.imgUrl || 'https://via.placeholder.com/50'}"><div class="med-info"><h4>${m.name}</h4><span>${m.barcode || ''}</span></div><div>${m.price}</div><div>${m.stock}</div><div style="color:red; font-weight:bold; font-size:12px;">${m.expiryDate}</div></div>`; }
                 if(m.stock > 0 && m.stock < 5) { lowCount++; lowHtml += rowHtml; }
                 if(m.stock <= 0) { noCount++; noHtml += rowHtml; }
+
+                // NEW: Logic for Total Shop Stock Value (only if stock >= 1 or > 0)
+                if(m.stock > 0) {
+                    let rate = m.rate || m.price;
+                    let itemTotalValue = m.stock * rate;
+                    totalShopStockValue += itemTotalValue;
+
+                    shopStockHtml += `
+                        <div class="med-row shop-stock-row" style="grid-template-columns: 60px 120px 70px 70px 180px;">
+                            <img src="${m.imgUrl || 'https://via.placeholder.com/50'}">
+                            <div class="med-info"><h4>${m.name}</h4><span>${m.category || ''}</span></div>
+                            <div>${m.stock} ${m.isLoose ? 'Kg' : ''}</div>
+                            <div>₹${rate}</div>
+                            <div style="font-weight:bold; color:var(--teal);">₹${itemTotalValue.toFixed(2)}</div>
+                        </div>`;
+                }
             });
 
             document.getElementById('med-list-render').innerHTML = mainHtml;
@@ -1468,9 +1480,22 @@
             document.getElementById('expiry-count').innerText = expiredCount + " items";
             document.getElementById('low-count').innerText = lowCount + " items";
             document.getElementById('no-count').innerText = noCount + " items";
+
+            // NEW: Update Shop Stock UI
+            document.getElementById('dash-total-stock-val').innerText = "₹" + totalShopStockValue.toFixed(2);
+            document.getElementById('total-stock-rupees').innerText = totalShopStockValue.toFixed(2);
+            document.getElementById('shop-stock-list').innerHTML = shopStockHtml || "<p style='padding:10px;'>No stock available</p>";
         });
 
-        // --- ADD/EDIT PRODUCT LOGIC ---
+        // NEW: Search/Filter for Shop Stock Page
+        window.filterShopStock = () => {
+            const term = document.getElementById('search-shop-stock').value.toLowerCase();
+            document.querySelectorAll('.shop-stock-row').forEach(row => {
+                const text = row.querySelector('.med-info h4').innerText.toLowerCase();
+                row.style.display = text.includes(term) ? "grid" : "none";
+            });
+        };
+
         window.saveMedicine = async () => {
             const id = document.getElementById('edit-id').value;
             const data = {
@@ -1482,29 +1507,26 @@
             if(id) await updateDoc(doc(db, "medicines", id), data); else await addDoc(collection(db, "medicines"), data);
             showMsg("Saved Successfully!");
             
-            // ডাটা সেভ হওয়ার পর ফর্ম ক্লিয়ার করে দেওয়া হচ্ছে
             document.getElementById('edit-id').value = "";
             document.getElementById('form-title').innerText = "Add New Product";
             ['m-barcode','m-name','m-price','m-rate','m-stock','m-expiry','m-cat','m-img'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ""; });
         };
 
-        // NEW: SAVE LOOSE PRODUCT LOGIC
         window.saveLooseProduct = async () => {
             const id = document.getElementById('edit-l-id').value;
             const data = {
                 barcode: "", name: document.getElementById('l-name').value, 
                 price: parseFloat(document.getElementById('l-price').value) || 0,
-                rate: parseFloat(document.getElementById('l-price').value) || 0, // Rate same as price for loose
-                stock: parseFloat(document.getElementById('l-stock').value) || 0, // Using parseFloat for kg
+                rate: parseFloat(document.getElementById('l-price').value) || 0, 
+                stock: parseFloat(document.getElementById('l-stock').value) || 0, 
                 expiryDate: "", category: document.getElementById('l-cat').value, 
                 imgUrl: document.getElementById('l-img').value,
-                isLoose: true // Flag to identify kg/gram products
+                isLoose: true 
             };
             if(!data.name || !data.price) return alert("Fill Name and Price!");
             if(id) await updateDoc(doc(db, "medicines", id), data); else await addDoc(collection(db, "medicines"), data);
             showMsg("Loose Product Saved!");
             
-            // ডাটা সেভ হওয়ার পর ফর্ম ক্লিয়ার করে দেওয়া হচ্ছে
             document.getElementById('edit-l-id').value = "";
             document.getElementById('l-form-title').innerText = "Add Loose Product";
             ['l-name','l-price','l-stock','l-cat','l-img'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ""; });
@@ -1526,7 +1548,6 @@
             document.getElementById('form-title').innerText = "Edit Product"; goToPage('page-add-med');
         };
 
-        // NEW: EDIT LOOSE PRODUCT
         window.editLooseMed = (id) => {
             const m = medicines.find(item => item.id === id);
             document.getElementById('edit-l-id').value = m.id; 
@@ -1541,7 +1562,6 @@
 
         window.deleteMed = async (id) => { if(confirm("Are you sure?")) await deleteDoc(doc(db, "medicines", id)); };
 
-        // --- REPORT LOGIC ---
         window.loadReport = async () => {
             const selDate = document.getElementById('report-date').value;
             if(!selDate) return alert("Select a date!");
@@ -1560,41 +1580,40 @@
         window.cancelSelection = () => { document.getElementById('qty-box').style.display = "none"; document.getElementById('sell-search').value = ""; document.getElementById('sell-loose-search').value = ""; tempSelectedMed = null; };
         window.removeFromCart = (index) => { cart.splice(index, 1); renderCart(); };
         window.resetCart = () => { if(confirm("Clear cart?")) { cart = []; 
-                document.getElementById('discount-amt').value = "0"; // RESET DISCOUNT AMT TOO
+                document.getElementById('discount-amt').value = "0"; 
                 renderCart(); 
             } 
         };
         
-        // --- ডিসকাউন্ট এবং টোটাল হিসাব করার ফাংশন (UPDATED) ---
         window.calculateTotal = () => {
             const sub = parseFloat(document.getElementById('subtotal').innerText) || 0;
             const discPercent = parseFloat(document.getElementById('discount').value) || 0;
-            const discAmt = parseFloat(document.getElementById('discount-amt').value) || 0; // NEW: Flat Discount Tracker
+            const discAmt = parseFloat(document.getElementById('discount-amt').value) || 0; 
             
             const discFromPercent = (sub * discPercent) / 100;
-            const finalTotal = sub - discFromPercent - discAmt; // Subtracting both percentages and flat amounts
+            const finalTotal = sub - discFromPercent - discAmt; 
             
             document.getElementById('grand-total').innerText = finalTotal > 0 ? finalTotal.toFixed(2) : "0.00";
         };
 
-        // --- সেভ করার পর সাকসেস মেসেজ দেখানো ---
         function showMsg(txt) { 
             document.getElementById('msgText').innerText = txt; 
             document.getElementById('msgBox').style.display = 'block'; 
         }
 
-        // --- মেসেজ বক্স বন্ধ করা এবং পেজ রিফ্রেশ করা ---
         window.closeMsg = () => { 
             document.getElementById('msgBox').style.display = 'none'; 
             location.reload(); 
         };
 
-        // --- ইনভেন্টরি পেজে নাম লিখে সার্চ/ফিল্টার করা ---
         window.filterMeds = () => {
             const term = document.getElementById('search-med').value.toLowerCase();
             document.querySelectorAll('.med-row').forEach(row => {
-                const text = row.innerText.toLowerCase();
-                row.style.display = text.includes(term) ? "grid" : "none";
+                // Ensure we don't accidentally hide the header or shop stock items
+                if(!row.classList.contains('shop-stock-row') && row.parentElement.id === 'med-list-render') {
+                    const text = row.innerText.toLowerCase();
+                    row.style.display = text.includes(term) ? "grid" : "none";
+                }
             });
         };
 
