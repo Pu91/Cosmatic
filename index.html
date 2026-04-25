@@ -414,13 +414,11 @@
                         <h3>Reports</h3>
                         <p>Sales Data</p>
                     </div>
-                    <!-- NEW: DISCOUNT CARD -->
                     <div class="menu-card card-discount" onclick="showDiscountBreakdown()">
                         <i class="fas fa-tags" style="color:var(--purple)"></i>
                         <h3 style="color:var(--purple)">Discount Given</h3>
                         <p>View Breakdown</p>
                     </div>
-                    <!-- NEW: TOTAL SHOP STOCK VALUE CARD -->
                     <div class="menu-card card-stockval" onclick="goToPage('page-shop-stock')">
                         <i class="fas fa-boxes" style="color:var(--teal)"></i>
                         <h3 style="color:var(--teal)">Total Stock Value</h3>
@@ -792,7 +790,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs, onSnapshot, doc, updateDoc, deleteDoc, query, where, serverTimestamp } 
         from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        // FIREBASE AUTH IMPORT
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } 
         from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
@@ -818,13 +815,9 @@
             Yesterday: { cash: 0, online: 0, total: 0 },
             Monthly: { cash: 0, online: 0, total: 0 }
         };
-
-        // NEW: Tracker for Discount Stats
         let discountStats = { Today: 0, Yesterday: 0, Monthly: 0 };
 
-        let printDevice = null;
-        let printInterface = null;
-        let printEndpoint = null;
+        let printDevice = null; let printInterface = null; let printEndpoint = null;
 
         const playSuccess = () => { try { document.getElementById('sound-success').play(); } catch(e){} };
         const playError = () => { try { document.getElementById('sound-error').play(); } catch(e){} };
@@ -845,12 +838,78 @@
             if(user) {
                 document.getElementById('login-container').style.display = 'none';
                 document.getElementById('app-content').style.display = 'block';
-                fetchDashboardStats(); // Load stats on login
+                fetchDashboardStats(); 
+                fetchInventoryData(); // <-- ডাটা লোড করার ফাংশন এখানে কল করা হলো
             } else {
                 document.getElementById('login-container').style.display = 'flex';
                 document.getElementById('app-content').style.display = 'none';
+                medicines = []; // লগআউট করলে ডাটা ক্লিয়ার হয়ে যাবে
             }
         });
+
+        // --- নতুন ডাটা ফেচিং ফাংশন ---
+        window.fetchInventoryData = () => {
+            onSnapshot(collection(db, "medicines"), (snapshot) => {
+                medicines =[]; 
+                let mainHtml = ""; let expiredHtml = ""; let lowHtml = ""; let noHtml = ""; let looseHtml = "";
+                let expiredCount = 0; let lowCount = 0; let noCount = 0; let todayStr = new Date().toISOString().split('T')[0];
+                let totalShopStockValue = 0; let shopStockHtml = "";
+
+                snapshot.forEach(doc => {
+                    let m = doc.data(); m.id = doc.id; medicines.push(m);
+                    
+                    const rowHtml = `
+                        <div class="med-row">
+                            <img src="${m.imgUrl || 'https://via.placeholder.com/50'}">
+                            <div class="med-info"><h4>${m.name}</h4><span>${m.category || 'N/A'} | ${m.barcode || (m.isLoose ? 'Loose Kg/Gm' : 'No BC')}</span></div>
+                            <div style="font-weight:bold;">${m.rate || m.price}</div>
+                            <div style="color:${m.stock < 5 ? 'red' : 'green'}">${m.stock}</div>
+                            <div class="action-btns-cell">
+                                <button class="btn-action btn-view" onclick="viewMedicine('${m.id}')"><i class="fas fa-eye"></i></button>
+                                <button class="btn-action btn-edit" onclick="${m.isLoose ? `editLooseMed('${m.id}')` : `editMed('${m.id}')`}"><i class="fas fa-edit"></i></button>
+                                <button class="btn-action btn-del" onclick="deleteMed('${m.id}')"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>`;
+                    
+                    mainHtml += rowHtml;
+                    if(m.isLoose) { looseHtml += rowHtml; }
+
+                    if(m.expiryDate && m.expiryDate <= todayStr) { expiredCount++; expiredHtml += `<div class="med-row"><img src="${m.imgUrl || 'https://via.placeholder.com/50'}"><div class="med-info"><h4>${m.name}</h4><span>${m.barcode || ''}</span></div><div>${m.price}</div><div>${m.stock}</div><div style="color:red; font-weight:bold; font-size:12px;">${m.expiryDate}</div></div>`; }
+                    if(m.stock > 0 && m.stock < 5) { lowCount++; lowHtml += rowHtml; }
+                    if(m.stock <= 0) { noCount++; noHtml += rowHtml; }
+
+                    if(m.stock > 0) {
+                        let rate = m.rate || m.price;
+                        let itemTotalValue = m.stock * rate;
+                        totalShopStockValue += itemTotalValue;
+
+                        shopStockHtml += `
+                            <div class="med-row shop-stock-row" style="grid-template-columns: 60px 120px 70px 70px 180px;">
+                                <img src="${m.imgUrl || 'https://via.placeholder.com/50'}">
+                                <div class="med-info"><h4>${m.name}</h4><span>${m.category || ''}</span></div>
+                                <div>${m.stock} ${m.isLoose ? 'Kg' : ''}</div>
+                                <div>₹${rate}</div>
+                                <div style="font-weight:bold; color:var(--teal);">₹${itemTotalValue.toFixed(2)}</div>
+                            </div>`;
+                    }
+                });
+
+                document.getElementById('med-list-render').innerHTML = mainHtml;
+                document.getElementById('loose-list-render').innerHTML = looseHtml || "<p style='padding:10px;'>No Loose Products</p>";
+                document.getElementById('expired-list').innerHTML = expiredHtml || "<p style='padding:10px;'>No Expired Items</p>";
+                document.getElementById('lowstock-list').innerHTML = lowHtml || "<p style='padding:10px;'>No Low Stock Items</p>";
+                document.getElementById('nostock-list').innerHTML = noHtml || "<p style='padding:10px;'>All Items in Stock</p>";
+                
+                document.getElementById('total-med-count').innerText = "Total: " + snapshot.size;
+                document.getElementById('expiry-count').innerText = expiredCount + " items";
+                document.getElementById('low-count').innerText = lowCount + " items";
+                document.getElementById('no-count').innerText = noCount + " items";
+
+                document.getElementById('dash-total-stock-val').innerText = "₹" + totalShopStockValue.toFixed(2);
+                document.getElementById('total-stock-rupees').innerText = totalShopStockValue.toFixed(2);
+                document.getElementById('shop-stock-list').innerHTML = shopStockHtml || "<p style='padding:10px;'>No stock available</p>";
+            });
+        };
 
         window.triggerPrint = (modeClass) => {
             document.body.classList.add(modeClass);
@@ -1285,15 +1344,13 @@
             const today = new Date().toISOString().split('T')[0];
             const invNo = Math.floor(100000 + Math.random() * 900000); 
 
-            // NEW: Calculate Absolute Total Discount Value in Rupees for Database
             const discFromPercentVal = (sub * discPercent) / 100;
             const totalDiscountInRupees = discFromPercentVal + discAmt;
 
-            // NEW: Added totalDiscountValue to saleObj
             const saleObj = { 
                 customerName: custName, customerPhone: custPhone, items: [...cart], 
                 subtotal: sub, discount: discPercent, discountAmt: discAmt, 
-                totalDiscountValue: totalDiscountInRupees, // Save total discount amount to firebase
+                totalDiscountValue: totalDiscountInRupees, 
                 total: grand, payment: document.getElementById('pay-mode').value, 
                 date: today, invNo: invNo 
             };
@@ -1344,35 +1401,25 @@
             let yesterday = y.toISOString().split('T')[0];
             let currentMonth = today.slice(0, 7);
             
-            paymentStats = {
-                Today: { cash: 0, online: 0, total: 0 },
-                Yesterday: { cash: 0, online: 0, total: 0 },
-                Monthly: { cash: 0, online: 0, total: 0 }
-            };
-            
-            // NEW: Reset Discount Stats
+            paymentStats = { Today: { cash: 0, online: 0, total: 0 }, Yesterday: { cash: 0, online: 0, total: 0 }, Monthly: { cash: 0, online: 0, total: 0 } };
             discountStats = { Today: 0, Yesterday: 0, Monthly: 0 };
             allSalesForExport =[];
 
             snap.forEach(doc => {
                 const s = doc.data(); allSalesForExport.push(s);
-                
                 let isOnline = (s.payment === 'Online');
-                let discVal = s.totalDiscountValue || 0; // Fallback if older data doesn't have this
+                let discVal = s.totalDiscountValue || 0; 
                 
                 if(s.date === today) {
-                    paymentStats.Today.total += s.total;
-                    discountStats.Today += discVal; // Record today's discount
+                    paymentStats.Today.total += s.total; discountStats.Today += discVal; 
                     if(isOnline) paymentStats.Today.online += s.total; else paymentStats.Today.cash += s.total;
                 }
                 if(s.date === yesterday) {
-                    paymentStats.Yesterday.total += s.total;
-                    discountStats.Yesterday += discVal; // Record yesterday's discount
+                    paymentStats.Yesterday.total += s.total; discountStats.Yesterday += discVal; 
                     if(isOnline) paymentStats.Yesterday.online += s.total; else paymentStats.Yesterday.cash += s.total;
                 }
                 if(s.date.startsWith(currentMonth)) {
-                    paymentStats.Monthly.total += s.total;
-                    discountStats.Monthly += discVal; // Record monthly discount
+                    paymentStats.Monthly.total += s.total; discountStats.Monthly += discVal; 
                     if(isOnline) paymentStats.Monthly.online += s.total; else paymentStats.Monthly.cash += s.total;
                 }
             });
@@ -1405,7 +1452,6 @@
             document.getElementById('detailModal').style.display = 'flex';
         };
 
-        // NEW: Function to Show Discount Breakdown in Modal
         window.showDiscountBreakdown = () => {
             let html = `
                 <h3 style="color:var(--purple); text-align:center; margin-top:0;">Discount Given Overview</h3>
@@ -1419,81 +1465,6 @@
             `;
             document.getElementById('modal-data-render').innerHTML = html;
             document.getElementById('detailModal').style.display = 'flex';
-        };
-
-        onSnapshot(collection(db, "medicines"), (snapshot) => {
-            medicines =[]; 
-            let mainHtml = ""; let expiredHtml = ""; let lowHtml = ""; let noHtml = ""; let looseHtml = "";
-            let expiredCount = 0; let lowCount = 0; let noCount = 0; let todayStr = new Date().toISOString().split('T')[0];
-            
-            // NEW: Variables for Shop Stock Calculation
-            let totalShopStockValue = 0;
-            let shopStockHtml = "";
-
-            snapshot.forEach(doc => {
-                let m = doc.data(); m.id = doc.id; medicines.push(m);
-                
-                const rowHtml = `
-                    <div class="med-row">
-                        <img src="${m.imgUrl || 'https://via.placeholder.com/50'}">
-                        <div class="med-info"><h4>${m.name}</h4><span>${m.category} | ${m.barcode || (m.isLoose ? 'Loose Kg/Gm' : 'No BC')}</span></div>
-                        <div style="font-weight:bold;">${m.rate || m.price}</div>
-                        <div style="color:${m.stock < 5 ? 'red' : 'green'}">${m.stock}</div>
-                        <div class="action-btns-cell">
-                            <button class="btn-action btn-view" onclick="viewMedicine('${m.id}')"><i class="fas fa-eye"></i></button>
-                            <button class="btn-action btn-edit" onclick="${m.isLoose ? `editLooseMed('${m.id}')` : `editMed('${m.id}')`}"><i class="fas fa-edit"></i></button>
-                            <button class="btn-action btn-del" onclick="deleteMed('${m.id}')"><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>`;
-                
-                mainHtml += rowHtml;
-                if(m.isLoose) { looseHtml += rowHtml; }
-
-                if(m.expiryDate && m.expiryDate <= todayStr) { expiredCount++; expiredHtml += `<div class="med-row"><img src="${m.imgUrl || 'https://via.placeholder.com/50'}"><div class="med-info"><h4>${m.name}</h4><span>${m.barcode || ''}</span></div><div>${m.price}</div><div>${m.stock}</div><div style="color:red; font-weight:bold; font-size:12px;">${m.expiryDate}</div></div>`; }
-                if(m.stock > 0 && m.stock < 5) { lowCount++; lowHtml += rowHtml; }
-                if(m.stock <= 0) { noCount++; noHtml += rowHtml; }
-
-                // NEW: Logic for Total Shop Stock Value (only if stock >= 1 or > 0)
-                if(m.stock > 0) {
-                    let rate = m.rate || m.price;
-                    let itemTotalValue = m.stock * rate;
-                    totalShopStockValue += itemTotalValue;
-
-                    shopStockHtml += `
-                        <div class="med-row shop-stock-row" style="grid-template-columns: 60px 120px 70px 70px 180px;">
-                            <img src="${m.imgUrl || 'https://via.placeholder.com/50'}">
-                            <div class="med-info"><h4>${m.name}</h4><span>${m.category || ''}</span></div>
-                            <div>${m.stock} ${m.isLoose ? 'Kg' : ''}</div>
-                            <div>₹${rate}</div>
-                            <div style="font-weight:bold; color:var(--teal);">₹${itemTotalValue.toFixed(2)}</div>
-                        </div>`;
-                }
-            });
-
-            document.getElementById('med-list-render').innerHTML = mainHtml;
-            document.getElementById('loose-list-render').innerHTML = looseHtml || "<p style='padding:10px;'>No Loose Products</p>";
-            document.getElementById('expired-list').innerHTML = expiredHtml || "<p style='padding:10px;'>No Expired Items</p>";
-            document.getElementById('lowstock-list').innerHTML = lowHtml || "<p style='padding:10px;'>No Low Stock Items</p>";
-            document.getElementById('nostock-list').innerHTML = noHtml || "<p style='padding:10px;'>All Items in Stock</p>";
-            
-            document.getElementById('total-med-count').innerText = "Total: " + snapshot.size;
-            document.getElementById('expiry-count').innerText = expiredCount + " items";
-            document.getElementById('low-count').innerText = lowCount + " items";
-            document.getElementById('no-count').innerText = noCount + " items";
-
-            // NEW: Update Shop Stock UI
-            document.getElementById('dash-total-stock-val').innerText = "₹" + totalShopStockValue.toFixed(2);
-            document.getElementById('total-stock-rupees').innerText = totalShopStockValue.toFixed(2);
-            document.getElementById('shop-stock-list').innerHTML = shopStockHtml || "<p style='padding:10px;'>No stock available</p>";
-        });
-
-        // NEW: Search/Filter for Shop Stock Page
-        window.filterShopStock = () => {
-            const term = document.getElementById('search-shop-stock').value.toLowerCase();
-            document.querySelectorAll('.shop-stock-row').forEach(row => {
-                const text = row.querySelector('.med-info h4').innerText.toLowerCase();
-                row.style.display = text.includes(term) ? "grid" : "none";
-            });
         };
 
         window.saveMedicine = async () => {
@@ -1520,8 +1491,7 @@
                 rate: parseFloat(document.getElementById('l-price').value) || 0, 
                 stock: parseFloat(document.getElementById('l-stock').value) || 0, 
                 expiryDate: "", category: document.getElementById('l-cat').value, 
-                imgUrl: document.getElementById('l-img').value,
-                isLoose: true 
+                imgUrl: document.getElementById('l-img').value, isLoose: true 
             };
             if(!data.name || !data.price) return alert("Fill Name and Price!");
             if(id) await updateDoc(doc(db, "medicines", id), data); else await addDoc(collection(db, "medicines"), data);
@@ -1579,37 +1549,23 @@
         window.closeDetailModal = () => document.getElementById('detailModal').style.display = 'none';
         window.cancelSelection = () => { document.getElementById('qty-box').style.display = "none"; document.getElementById('sell-search').value = ""; document.getElementById('sell-loose-search').value = ""; tempSelectedMed = null; };
         window.removeFromCart = (index) => { cart.splice(index, 1); renderCart(); };
-        window.resetCart = () => { if(confirm("Clear cart?")) { cart = []; 
-                document.getElementById('discount-amt').value = "0"; 
-                renderCart(); 
-            } 
-        };
+        window.resetCart = () => { if(confirm("Clear cart?")) { cart = []; document.getElementById('discount-amt').value = "0"; renderCart(); } };
         
         window.calculateTotal = () => {
             const sub = parseFloat(document.getElementById('subtotal').innerText) || 0;
             const discPercent = parseFloat(document.getElementById('discount').value) || 0;
             const discAmt = parseFloat(document.getElementById('discount-amt').value) || 0; 
-            
             const discFromPercent = (sub * discPercent) / 100;
             const finalTotal = sub - discFromPercent - discAmt; 
-            
             document.getElementById('grand-total').innerText = finalTotal > 0 ? finalTotal.toFixed(2) : "0.00";
         };
 
-        function showMsg(txt) { 
-            document.getElementById('msgText').innerText = txt; 
-            document.getElementById('msgBox').style.display = 'block'; 
-        }
-
-        window.closeMsg = () => { 
-            document.getElementById('msgBox').style.display = 'none'; 
-            location.reload(); 
-        };
+        function showMsg(txt) { document.getElementById('msgText').innerText = txt; document.getElementById('msgBox').style.display = 'block'; }
+        window.closeMsg = () => { document.getElementById('msgBox').style.display = 'none'; location.reload(); };
 
         window.filterMeds = () => {
             const term = document.getElementById('search-med').value.toLowerCase();
             document.querySelectorAll('.med-row').forEach(row => {
-                // Ensure we don't accidentally hide the header or shop stock items
                 if(!row.classList.contains('shop-stock-row') && row.parentElement.id === 'med-list-render') {
                     const text = row.innerText.toLowerCase();
                     row.style.display = text.includes(term) ? "grid" : "none";
@@ -1617,6 +1573,13 @@
             });
         };
 
+        window.filterShopStock = () => {
+            const term = document.getElementById('search-shop-stock').value.toLowerCase();
+            document.querySelectorAll('.shop-stock-row').forEach(row => {
+                const text = row.querySelector('.med-info h4').innerText.toLowerCase();
+                row.style.display = text.includes(term) ? "grid" : "none";
+            });
+        };
     </script>
 </body>
 </html>
